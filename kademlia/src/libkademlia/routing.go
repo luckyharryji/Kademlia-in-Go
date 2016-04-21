@@ -18,17 +18,17 @@ type RoutingTable struct {
 	Buckets [b] *BucketList
 }
 
-type ContactForSort struct {
-	contact Contact
-	id      ID
-}
+// type ContactForSort struct {
+// 	contact Contact
+// 	id      ID
+// }
 
 type Contacts []ContactForSort
 
 func NewRoutingTable() (table *RoutingTable) {
 	table = new(RoutingTable)
 	for i := 0; i < 8 * IDBytes; i++ {
-		table.BucketLists[i] = list.New()
+		table.BucketLists[i] = &BucketList{length: 0}
 	}
 	return
 }
