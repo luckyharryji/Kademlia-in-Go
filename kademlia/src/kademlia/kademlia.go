@@ -22,7 +22,7 @@ func main() {
 	// TODO: PUT YOUR GROUP'S NET IDS HERE!
 	// Example:
 	// netIds := "abc123 def456 ghi789"
-	netIds := "xjq158"
+	netIds := "xjq158 lwc078"
 	if len(netIds) == 0 {
 		log.Fatal("Variable containing group's net IDs is not set!\n")
 	}
@@ -50,9 +50,9 @@ func main() {
 	// Confirm our server is up with a PING request and then exit.
 	// Your code should loop forever, reading instructions from stdin and
 	// printing their results to stdout. See README.txt for more details.
-	hostname, port, err := net.SplitHostPort(firstPeerStr)
+	_, port, err := net.SplitHostPort(firstPeerStr)
 	client, err := rpc.DialHTTPPath("tcp", firstPeerStr,
-		rpc.DefaultRPCPath+hostname+port)
+		rpc.DefaultRPCPath+port)
 	if err != nil {
 		log.Fatal("DialHTTP: ", err)
 	}
