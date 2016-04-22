@@ -98,7 +98,7 @@ func (e *CommandFailed) Error() string {
 func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	ping := PingMessage{k.SelfContact, NewRandomID()}
 	var pong PongMessage
-	address := host.String() + ":" + strconv.FormatInt(int64(port), 10)
+	address := host.String() + ":" + strconv.Itoa(int(port))
 	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
 	client, err := rpc.DialHTTPPath("tcp", address, path)
 	err = client.Call("KademliaRPC.Ping", ping, &pong)
@@ -119,9 +119,9 @@ func (k *Kademlia) DoStore(contact *Contact, key ID, value []byte) error {
 	request := StoreRequest{k.SelfContact, NewRandomID(), key, value}
 	var result StoreResult
 	host := contact.Host.String()
-	port := contact.Port
-	address := host + ":" + strconv.FormatInt(int64(port), 10)
-	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
+	port := strconv.Itoa(int(contact.Port))
+	address := host + ":" + port
+	path := rpc.DefaultRPCPath + port
 	client, err := rpc.DialHTTPPath("tcp", address, path)
 	err = client.Call("KademliaRPC.Store", request, &result)
 	if err != nil {
@@ -135,9 +135,9 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 	request := FindNodeRequest{k.SelfContact, NewRandomID(), searchKey}
 	var result FindNodeResult
 	host := contact.Host.String()
-	port := contact.Port
-	address := host + ":" + strconv.FormatInt(int64(port), 10)
-	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
+	port := strconv.Itoa(int(contact.Port))
+	address := host + ":" + port
+	path := rpc.DefaultRPCPath + port
 	client, err := rpc.DialHTTPPath("tcp", address, path)
 	err = client.Call("KademliaRPC.FindNode", request, &result)
 	if err != nil {
@@ -155,9 +155,9 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 	request := FindValueRequest{k.SelfContact, NewRandomID(), searchKey}
 	var result FindValueResult
 	host := contact.Host.String()
-	port := contact.Port
-	address := host + ":" + strconv.FormatInt(int64(port), 10)
-	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
+	port := strconv.Itoa(int(contact.Port))
+	address := host + ":" + port
+	path := rpc.DefaultRPCPath + port
 	client, err := rpc.DialHTTPPath("tcp", address, path)
 	err = client.Call("KademliaRPC.FindValue", request, &result)
 	if err != nil {
