@@ -22,26 +22,27 @@ const (
 type Kademlia struct {
 	NodeID      ID
 	SelfContact Contact
+	table       *RoutingTable
 }
 
 func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k := new(Kademlia)
 	k.NodeID = nodeID
-
+	k.table = NewRoutingTable(nodeID)
 	// TODO: Initialize other state here as you add functionality.
-
+	kRPC := new(KademliaRPC)
+	kRPC.kademlia = k
 	// Set up RPC server
 	// NOTE: KademliaRPC is just a wrapper around Kademlia. This type includes
 	// the RPC functions.
-
 	s := rpc.NewServer()
 	s.Register(&KademliaRPC{k})
 	hostname, port, err := net.SplitHostPort(laddr)
 	if err != nil {
 		return nil
 	}
-	s.HandleHTTP(rpc.DefaultRPCPath+hostname+port,
-		rpc.DefaultDebugPath+hostname+port)
+	s.HandleHTTP(rpc.DefaultRPCPath+port,
+		rpc.DefaultDebugPath+port)
 	l, err := net.Listen("tcp", laddr)
 	if err != nil {
 		log.Fatal("Listen: ", err)
@@ -96,7 +97,17 @@ func (e *CommandFailed) Error() string {
 }
 
 func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
-	// TODO: Implement
+	ping := PingMessage{k.SelfContact, NewRandomID()}
+	var pong PongMessage
+	address := host.String() + ":" + strconv.FormatInt(int64(port), 10)
+	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
+	client, err := rpc.DialHTTPPath("tcp", address, path)
+	err = client.Call("KademliaRPC.Ping", ping, &pong)
+	if err != nil {
+		log.Fatal("Call:", err)
+	}
+	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
+	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
 	return nil, &CommandFailed{
 		"Unable to ping " + fmt.Sprintf("%s:%v", host.String(), port)}
 }
