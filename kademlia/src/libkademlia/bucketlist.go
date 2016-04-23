@@ -38,11 +38,11 @@ func (list *BucketList) Push(contact Contact) *BucketList {
     return list
 }
 
-func (list *BucketList) Find(contact Contact) *BucketNode {
+func (list *BucketList) Find(nodeId ID) *BucketNode {
     found := false
     var ret *BucketNode = nil
     for n := list.First(); n != nil && !found; n = n.Next() {
-        if n.contact.NodeID.Equals(contact.NodeID) {
+        if n.contact.NodeID.Equals(nodeId) {
             found = true
             ret = n
         }
