@@ -22,7 +22,7 @@ const (
 type Kademlia struct {
 	NodeID      ID
 	SelfContact Contact
-	RoutingTable RoutingTable
+	RoutingTable *RoutingTable
 }
 
 func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
@@ -65,7 +65,7 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k.SelfContact = Contact{k.NodeID, host, uint16(port_int)}
 
 	// initialize the routing table for the Kademlia
-	routingTable = NewRoutingTable()
+	routingTable := NewRoutingTable()
 	k.RoutingTable = routingTable
 	return k
 }
@@ -90,11 +90,9 @@ func (k *Kademlia) FindContact(nodeId ID) (*Contact, error) {
 	if nodeId == k.SelfContact.NodeID {
 		return &k.SelfContact, nil
 	}
-	prefixlen := nodeId.Xor(k.NodeID).PrefixLen()
-	locationList := k.RoutingTable.Buckets[prefixlen]
-	nodeOfContact := locationList.Find(nodeId)
+	nodeOfContact := k.RoutingTable.FindNodeWithId(k.NodeID, nodeId)
 	if nodeOfContact != nil{
-		return &nodeOfContact.contact, nil
+		return nodeOfContact, nil
 	} else {
 		return nil, &ContactNotFoundError{nodeId, "Not found"}
 	}
@@ -120,7 +118,7 @@ type Contact struct {
 func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	// TODO: Implement
 	contact := k.SelfContact
-	pingMessage := PingMessage{sender: contact, MegID: k.NodeID}
+	pingMessage := PingMessage{Sender: contact, MsgID: k.NodeID}
 	var pongMessage PongMessage
 
 	address := host.String() + ":" + strconv.FormatInt(int64(port), 10)
@@ -129,10 +127,16 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	err = client.Call("KademliaRPC.Ping", pingMessage, &pongMessage)
 	if err != nil {
 		log.Fatal("Call: ", err)
+		return nil, &CommandFailed{
+			"Unable to ping " + fmt.Sprintf("%s:%v", host.String(), port)}
 	}
-	// k.routingTable.
-	return nil, &CommandFailed{
-		"Unable to ping " + fmt.Sprintf("%s:%v", host.String(), port)}
+	errorRecord := k.RoutingTable.RecordContact(k.NodeID, pongMessage.Sender)
+	if errorRecord != nil {
+		return nil, &CommandFailed{
+			"Unable to ping " + fmt.Sprintf("%s:%v", host.String(), port)}
+	}
+	// TODO
+	return nil, nil
 }
 
 func (k *Kademlia) DoStore(contact *Contact, key ID, value []byte) error {

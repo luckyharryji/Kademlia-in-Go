@@ -31,3 +31,34 @@ func NewRoutingTable() (table *RoutingTable) {
 	}
 	return
 }
+
+func (table *RoutingTable) FindNodeWithId(selfId, nodeId ID) *Contact {
+	prefixlen := selfId.Xor(nodeId).PrefixLen()
+	locationList := table.Buckets[prefixlen]
+	nodeOfContact := locationList.Find(nodeId)
+	if nodeOfContact != nil {
+		return &nodeOfContact.contact
+	} else {
+		return nil
+	}
+}
+
+func (table *RoutingTable) RecordContact(selfId ID, contact Contact) error {
+	prefixlen := selfId.Xor(contact.NodeID).PrefixLen()
+	locationList := table.Buckets[prefixlen]
+	nodeOfContact := locationList.Find(contact.NodeID)
+	if nodeOfContact != nil {
+		previousNode := nodeOfContact.prev
+		afterNode := nodeOfContact.next
+		previousNode.next = afterNode
+		afterNode.prev = previousNode
+		locationList.Push(contact)
+	} else if locationList.length < k {
+		locationList.Push(contact)
+		return nil
+	} else {
+		// ToDo: ping the top of the list
+		return nil
+	}
+	return nil
+}
