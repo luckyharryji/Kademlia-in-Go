@@ -21,7 +21,6 @@ const (
 */
 
 type RoutingTable struct {
-	id ID
 	Buckets [b] * BucketList
 }
 
@@ -31,15 +30,4 @@ func NewRoutingTable() (table *RoutingTable) {
 		table.Buckets[i] = &BucketList{length: 0}
 	}
 	return
-}
-
-func (table *RoutingTable) FindContact(nodeId ID) (*Contact, error) {
-	prefixlen := nodeId.Xor(table.id).PrefixLen()
-	locationList := table.Buckets[prefixlen]
-	nodeOfContact := locationList.Find(nodeId)
-	if nodeOfContact != nil{
-		return &nodeOfContact.contact, nil
-	} else {
-		return nil, &ContactNotFoundError{nodeId, "Not found"}
-	}
 }

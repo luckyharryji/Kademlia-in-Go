@@ -22,6 +22,7 @@ const (
 type Kademlia struct {
 	NodeID      ID
 	SelfContact Contact
+	RoutingTable RoutingTable
 }
 
 func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
@@ -40,8 +41,8 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	if err != nil {
 		return nil
 	}
-	s.HandleHTTP(rpc.DefaultRPCPath+hostname+port,
-		rpc.DefaultDebugPath+hostname+port)
+	s.HandleHTTP(rpc.DefaultRPCPath + port,
+		rpc.DefaultDebugPath + port)
 	l, err := net.Listen("tcp", laddr)
 	if err != nil {
 		log.Fatal("Listen: ", err)
@@ -62,6 +63,10 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 		}
 	}
 	k.SelfContact = Contact{k.NodeID, host, uint16(port_int)}
+
+	// initialize the routing table for the Kademlia
+	routingTable = NewRoutingTable()
+	k.RoutingTable = routingTable
 	return k
 }
 
@@ -79,12 +84,20 @@ func (e *ContactNotFoundError) Error() string {
 }
 
 func (k *Kademlia) FindContact(nodeId ID) (*Contact, error) {
+	// Done
 	// TODO: Search through contacts, find specified ID
 	// Find contact with provided ID
 	if nodeId == k.SelfContact.NodeID {
 		return &k.SelfContact, nil
 	}
-	return nil, &ContactNotFoundError{nodeId, "Not found"}
+	prefixlen := nodeId.Xor(k.NodeID).PrefixLen()
+	locationList := k.RoutingTable.Buckets[prefixlen]
+	nodeOfContact := locationList.Find(nodeId)
+	if nodeOfContact != nil{
+		return &nodeOfContact.contact, nil
+	} else {
+		return nil, &ContactNotFoundError{nodeId, "Not found"}
+	}
 }
 
 type CommandFailed struct {
@@ -95,8 +108,29 @@ func (e *CommandFailed) Error() string {
 	return fmt.Sprintf("%s", e.msg)
 }
 
+/*
+type Contact struct {
+	NodeID ID
+	Host   net.IP
+	Port   uint16
+}
+
+*/
+
 func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	// TODO: Implement
+	contact := k.SelfContact
+	pingMessage := PingMessage{sender: contact, MegID: k.NodeID}
+	var pongMessage PongMessage
+
+	address := host.String() + ":" + strconv.FormatInt(int64(port), 10)
+	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
+	client, err := rpc.DialHTTPPath("tcp", address, path)
+	err = client.Call("KademliaRPC.Ping", pingMessage, &pongMessage)
+	if err != nil {
+		log.Fatal("Call: ", err)
+	}
+	// k.routingTable.
 	return nil, &CommandFailed{
 		"Unable to ping " + fmt.Sprintf("%s:%v", host.String(), port)}
 }
