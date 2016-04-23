@@ -1,7 +1,8 @@
 package libkademlia
-import (
-    "fmt"
-)
+
+// import (
+//     "fmt"
+// )
 
 type BucketNode struct {
     contact Contact

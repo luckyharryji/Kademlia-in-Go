@@ -1,9 +1,15 @@
 package libkademlia
 
-import (
-	"container/list"
-	"sort"
-)
+// import (
+// 	"container/list"
+// 	"sort"
+// )
+
+/*
+This lib tend to implement the RoutingTable structure for each server.
+
+ToDo: the table should be initialize with the kademlia object
+*/
 
 /*
 By defination in libkademlia
@@ -19,13 +25,10 @@ type RoutingTable struct {
 	Buckets [b] * BucketList
 }
 
-
-type Contacts []ContactForSort
-
 func NewRoutingTable() (table *RoutingTable) {
 	table = new(RoutingTable)
 	for i := 0; i < 8 * IDBytes; i++ {
-		table.BucketLists[i] = &BucketList{length: 0}
+		table.Buckets[i] = &BucketList{length: 0}
 	}
 	return
 }
