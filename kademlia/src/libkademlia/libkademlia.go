@@ -84,9 +84,6 @@ func (e *ContactNotFoundError) Error() string {
 }
 
 func (k *Kademlia) FindContact(nodeId ID) (*Contact, error) {
-	// Done
-	// TODO: Search through contacts, find specified ID
-	// Find contact with provided ID
 	if nodeId == k.SelfContact.NodeID {
 		return &k.SelfContact, nil
 	}
@@ -115,8 +112,23 @@ type Contact struct {
 
 */
 
+func (k *Kademlia) Update(contact Contact) {
+	headContact := k.RoutingTable.RecordContact(k.NodeID, contact)
+	if headContact != nil {
+		pingMessage := PingMessage{Sender: k.SelfContact, MsgID: k.NodeID}
+		var pongMessage PongMessage
+
+		address := headContact.Host.String() + ":" + strconv.FormatInt(int64(headContact.Port), 10)
+		path := rpc.DefaultRPCPath + strconv.Itoa(int(headContact.Port))
+		client, err := rpc.DialHTTPPath("tcp", address, path)
+		err = client.Call("KademliaRPC.Ping", pingMessage, &pongMessage)
+		if err == nil {
+			k.RoutingTable.UpdateFront(k.NodeID, contact)
+		}
+	}
+}
+
 func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
-	// TODO: Implement
 	contact := k.SelfContact
 	pingMessage := PingMessage{Sender: contact, MsgID: k.NodeID}
 	var pongMessage PongMessage
@@ -130,11 +142,7 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 		return nil, &CommandFailed{
 			"Unable to ping " + fmt.Sprintf("%s:%v", host.String(), port)}
 	}
-	errorRecord := k.RoutingTable.RecordContact(k.NodeID, pongMessage.Sender)
-	if errorRecord != nil {
-		return nil, &CommandFailed{
-			"Unable to ping " + fmt.Sprintf("%s:%v", host.String(), port)}
-	}
+	k.Update(pongMessage.Sender)
 	// TODO
 	return nil, nil
 }

@@ -32,10 +32,13 @@ func NewRoutingTable() (table *RoutingTable) {
 	return
 }
 
-func (table *RoutingTable) FindNodeWithId(selfId, nodeId ID) *Contact {
+func (table *RoutingTable) FindListWithId(selfId, nodeId ID) *BucketList {
 	prefixlen := selfId.Xor(nodeId).PrefixLen()
-	locationList := table.Buckets[prefixlen]
-	nodeOfContact := locationList.Find(nodeId)
+	return table.Buckets[prefixlen]
+}
+
+func (table *RoutingTable) FindNodeWithId(selfId, nodeId ID) *Contact {
+	nodeOfContact := table.FindListWithId(selfId, nodeId).Find(nodeId)
 	if nodeOfContact != nil {
 		return &nodeOfContact.contact
 	} else {
@@ -43,9 +46,13 @@ func (table *RoutingTable) FindNodeWithId(selfId, nodeId ID) *Contact {
 	}
 }
 
-func (table *RoutingTable) RecordContact(selfId ID, contact Contact) error {
-	prefixlen := selfId.Xor(contact.NodeID).PrefixLen()
-	locationList := table.Buckets[prefixlen]
+func (table *RoutingTable) UpdateFront(selfId ID, contact Contact) error {
+	table.FindListWithId(selfId, contact.NodeID).DeleteFrontInsert(contact)
+	return nil
+}
+
+func (table *RoutingTable) RecordContact(selfId ID, contact Contact) *Contact {
+	locationList := table.FindListWithId(selfId, contact.NodeID)
 	nodeOfContact := locationList.Find(contact.NodeID)
 	if nodeOfContact != nil {
 		previousNode := nodeOfContact.prev
@@ -53,12 +60,13 @@ func (table *RoutingTable) RecordContact(selfId ID, contact Contact) error {
 		previousNode.next = afterNode
 		afterNode.prev = previousNode
 		locationList.Push(contact)
+		return nil
 	} else if locationList.length < k {
 		locationList.Push(contact)
 		return nil
 	} else {
 		// ToDo: ping the top of the list
-		return nil
+		return &locationList.head.contact
 	}
 	return nil
 }

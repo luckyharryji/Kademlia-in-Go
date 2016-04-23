@@ -34,7 +34,11 @@ type PongMessage struct {
 
 func (k *KademliaRPC) Ping(ping PingMessage, pong *PongMessage) error {
 	// TODO: Finish implementation
+	k.kademlia.Update(ping.Sender)
 	pong.MsgID = CopyID(ping.MsgID)
+	pong.Sender = k.kademlia.SelfContact
+
+	// TODO
 	// Specify the sender
 	// Update contact, etc
 	return nil
