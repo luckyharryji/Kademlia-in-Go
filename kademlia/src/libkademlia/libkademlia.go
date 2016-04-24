@@ -107,6 +107,7 @@ func (k *Kademlia) HandleTable() {
 	Hashforcontact := make(map[ID]chan contactresult)
 	for {
 		select {
+		//register for new client
 		case client := <-k.registerchannel:
 			number := client.num
 			switch number {
@@ -116,20 +117,24 @@ func (k *Kademlia) HandleTable() {
 				Hashforcontact[client.id] = client.contactchan
 			}
 		case cmd := <-k.updatechannel:
+			//update the routingtable
 			k.table.UpDate(k, cmd.contact)
 		case cmd := <-k.findchannel:
 			number := cmd.num
 			switch number {
 			case 1:
+				//find nodes
 				nodes := k.table.FindCloset(cmd.key)
 				result := findresult{nodes, nil, nil}
 				Hashforfind[cmd.clientid] <- result
 			case 2:
+				//find value
 				value, _ := k.LocalFindValue(cmd.key)
 				nodes := k.table.FindCloset(cmd.key)
 				result := findresult{nodes, value, nil}
 				Hashforfind[cmd.clientid] <- result
 			case 3:
+				//find specific contact
 				node := k.table.FindContact(cmd.key)
 				Hashforcontact[cmd.clientid] <- contactresult{node}
 			}
