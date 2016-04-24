@@ -110,6 +110,10 @@ func (e *CommandFailed) Error() string {
 	return fmt.Sprintf("%s", e.msg)
 }
 
+func (k *Kademlia) FindNearNode(key ID) ([]Contact, error){
+	return k.RoutingTable.FindClosest(k.NodeID, key)
+}
+
 func (k *Kademlia) Update(contact Contact) {
 	headContact := k.RoutingTable.RecordContact(k.NodeID, contact)
 	if headContact != nil {
@@ -163,7 +167,23 @@ func (k *Kademlia) DoStore(contact *Contact, key ID, value []byte) error {
 
 func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error) {
 	// TODO: Implement
-	return nil, &CommandFailed{"Not implemented"}
+	clientContact := k.SelfContact
+	requestPacket := FindNodeRequest{Sender: clientContact, MsgID: clientContact.NodeID, NodeID: searchKey}
+	var response FindNodeResult
+
+	address := contact.Host.String() + ":" + strconv.FormatInt(int64(contact.Port), 10)
+	path := rpc.DefaultRPCPath + strconv.Itoa(int(contact.Port))
+	client, err := rpc.DialHTTPPath("tcp", address, path)
+	err = client.Call("KademliaRPC.FindNode", requestPacket, &response)
+	if err != nil {
+		log.Fatal("Call: ", err)
+		return nil, &CommandFailed{"Unable to Find "}
+	}
+
+	for _, value := range response.Nodes {
+		k.Update(value)
+	}
+	return response.Nodes, nil
 }
 
 func (k *Kademlia) DoFindValue(contact *Contact,

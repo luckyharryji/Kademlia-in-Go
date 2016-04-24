@@ -80,6 +80,10 @@ type FindNodeResult struct {
 
 func (k *KademliaRPC) FindNode(req FindNodeRequest, res *FindNodeResult) error {
 	// TODO: Implement.
+	nodesList, err := k.kademlia.FindNearNode(req.NodeID)
+	res.MsgID = CopyID(req.MsgID)
+	res.Nodes = nodesList
+	res.Err = err
 	return nil
 }
 

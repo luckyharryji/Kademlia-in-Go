@@ -93,47 +93,57 @@ func TestStore(t *testing.T) {
 	}
 	return
 }
-//
-// func TestFindNode(t *testing.T) {
-// 	// tree structure;
-// 	// A->B->tree
-// 	/*
-// 	         C
-// 	      /
-// 	  A-B -- D
-// 	      \
-// 	         E
-// 	*/
-// 	instance1 := NewKademlia("localhost:7894")
-// 	instance2 := NewKademlia("localhost:7895")
-// 	host2, port2, _ := StringToIpPort("localhost:7895")
-// 	instance1.DoPing(host2, port2)
-// 	contact2, err := instance1.FindContact(instance2.NodeID)
-// 	if err != nil {
-// 		t.Error("Instance 2's contact not found in Instance 1's contact list")
-// 		return
-// 	}
-// 	tree_node := make([]*Kademlia, 10)
-// 	for i := 0; i < 10; i++ {
-// 		address := "localhost:" + strconv.Itoa(7896+i)
-// 		tree_node[i] = NewKademlia(address)
-// 		host_number, port_number, _ := StringToIpPort(address)
-// 		instance2.DoPing(host_number, port_number)
-// 	}
-// 	key := NewRandomID()
-// 	contacts, err := instance1.DoFindNode(contact2, key)
-// 	if err != nil {
-// 		t.Error("Error doing FindNode")
-// 	}
-//
-// 	if contacts == nil || len(contacts) == 0 {
-// 		t.Error("No contacts were found")
-// 	}
-// 	// TODO: Check that the correct contacts were stored
-// 	//       (and no other contacts)
-//
-// 	return
-// }
+
+func TestFindNode(t *testing.T) {
+	// tree structure;
+	// A->B->tree
+	/*
+	         C
+	      /
+	  A-B -- D
+	      \
+	         E
+	*/
+	instance1 := NewKademlia("localhost:7894")
+	instance2 := NewKademlia("localhost:7895")
+	host2, port2, _ := StringToIpPort("localhost:7895")
+	instance1.DoPing(host2, port2)
+	contact2, err := instance1.FindContact(instance2.NodeID)
+	if err != nil {
+		t.Error("Instance 2's contact not found in Instance 1's contact list")
+		return
+	}
+	tree_node := make([]*Kademlia, 10)
+	for i := 0; i < 10; i++ {
+		address := "localhost:" + strconv.Itoa(7896+i)
+		tree_node[i] = NewKademlia(address)
+		host_number, port_number, _ := StringToIpPort(address)
+		instance2.DoPing(host_number, port_number)
+	}
+	key := NewRandomID()
+	contacts, err := instance1.DoFindNode(contact2, key)
+	if err != nil {
+		t.Error("Error doing FindNode")
+	}
+
+	if contacts == nil || len(contacts) == 0 {
+		t.Error("No contacts were found")
+	}
+	// TODO: Check that the correct contacts were stored
+	//       (and no other contacts)
+
+	for i := 0; i < 10; i++ {
+		returnedContact, err := instance1.FindContact(tree_node[i].NodeID)
+		if err != nil {
+			t.Error("Instance returned not found in Instance 1's contact list")
+			return
+		}
+		if returnedContact.NodeID != tree_node[i].NodeID {
+			t.Error("Returned ID incorrectly stored in Instance 1's contact list")
+		}
+	}
+	return
+}
 //
 // func TestFindValue(t *testing.T) {
 // 	// tree structure;

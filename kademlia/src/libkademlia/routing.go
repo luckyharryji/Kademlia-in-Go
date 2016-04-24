@@ -5,7 +5,7 @@ This lib tend to implement the RoutingTable structure for each server.
 */
 
 type RoutingTable struct {
-	Buckets [b] * BucketList
+	Buckets [b] *BucketList
 }
 
 func NewRoutingTable() (table *RoutingTable) {
@@ -55,4 +55,34 @@ func (table *RoutingTable) RecordContact(selfId ID, contact Contact) *Contact {
 		return &locationList.head.contact
 	}
 	return nil
+}
+
+func CreateShortList(contactList *[]Contact, list *BucketList, count *int) {
+	for e := list.head; e != nil; e = e.Next() {
+		if *count < k {
+			*contactList = append(*contactList, e.contact)
+			*count++
+		} else {
+			return
+		}
+	}
+}
+
+func (table *RoutingTable) FindClosest(selfId, id ID) ([]Contact, error) {
+	prefixlen := id.Xor(selfId).PrefixLen()
+	bucket := table.Buckets[prefixlen]
+	var shortlist []Contact
+	count := 0
+	CreateShortList(&shortlist, bucket, &count)
+	for i := 1; (prefixlen - i >= 0 || prefixlen + i < b) && count <= k; i++ {
+		if prefixlen - i >= 0 {
+			bucket = table.Buckets[prefixlen-i]
+			CreateShortList(&shortlist, bucket, &count)
+		}
+		if prefixlen + i < b {
+			bucket = table.Buckets[prefixlen+i]
+			CreateShortList(&shortlist, bucket, &count)
+		}
+	}
+	return shortlist, nil
 }
