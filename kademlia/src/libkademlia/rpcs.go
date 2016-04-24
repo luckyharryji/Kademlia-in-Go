@@ -107,6 +107,16 @@ type FindValueResult struct {
 
 func (k *KademliaRPC) FindValue(req FindValueRequest, res *FindValueResult) error {
 	// TODO: Implement.
+	value, findingError := k.kademlia.LocalFindValue(req.Key)
+	res.MsgID = CopyID(req.MsgID)
+	if findingError != nil {
+		nodesList, _ := k.kademlia.FindNearNode(req.Key)
+		res.Nodes = nodesList
+		// res.Err = findingError
+	} else {
+		res.Nodes = nil
+	}
+	res.Value = value
 	return nil
 }
 

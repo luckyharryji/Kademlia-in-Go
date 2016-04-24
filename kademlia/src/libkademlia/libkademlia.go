@@ -189,7 +189,24 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 func (k *Kademlia) DoFindValue(contact *Contact,
 	searchKey ID) (value []byte, contacts []Contact, err error) {
 	// TODO: Implement
-	return nil, nil, &CommandFailed{"Not implemented"}
+	clientContact := k.SelfContact
+	findValueRequest := FindValueRequest{Sender: clientContact, MsgID: k.NodeID, Key: searchKey}
+	var valueResponse FindValueResult
+	address := contact.Host.String() + ":" + strconv.FormatInt(int64(contact.Port), 10)
+	path := rpc.DefaultRPCPath + strconv.Itoa(int(contact.Port))
+	client, err := rpc.DialHTTPPath("tcp", address, path)
+	err = client.Call("KademliaRPC.FindValue", findValueRequest, &valueResponse)
+	if err != nil {
+		fmt.Println("goes here")
+		log.Fatal("Call: ", err)
+		return nil, nil, &CommandFailed{"Unable to Find Value "}
+	}
+	if valueResponse.Err != nil {
+		for _, returnNode := range valueResponse.Nodes {
+			k.Update(returnNode)
+		}
+	}
+	return valueResponse.Value, valueResponse.Nodes, valueResponse.Err
 }
 
 /*
