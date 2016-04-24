@@ -1,23 +1,7 @@
 package libkademlia
 
-// import (
-// 	"container/list"
-// 	"sort"
-// )
-
 /*
 This lib tend to implement the RoutingTable structure for each server.
-
-ToDo: the table should be initialize with the kademlia object
-*/
-
-/*
-By defination in libkademlia
-const (
-	alpha = 3
-	b     = 8 * IDBytes
-	k     = 20
-)
 */
 
 type RoutingTable struct {
@@ -55,8 +39,8 @@ func (table *RoutingTable) RecordContact(selfId ID, contact Contact) *Contact {
 	locationList := table.FindListWithId(selfId, contact.NodeID)
 	nodeOfContact := locationList.Find(contact.NodeID)
 	if nodeOfContact != nil {
-		previousNode := nodeOfContact.prev
-		afterNode := nodeOfContact.next
+		previousNode := nodeOfContact.Prev()
+		afterNode := nodeOfContact.Next()
 		previousNode.next = afterNode
 		afterNode.prev = previousNode
 		locationList.Push(contact)
@@ -65,7 +49,6 @@ func (table *RoutingTable) RecordContact(selfId ID, contact Contact) *Contact {
 		locationList.Push(contact)
 		return nil
 	} else {
-		// ToDo: ping the top of the list
 		return &locationList.head.contact
 	}
 	return nil

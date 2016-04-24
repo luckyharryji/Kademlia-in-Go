@@ -1,12 +1,16 @@
 package libkademlia
 
-// import (
-//     "fmt"
-// )
-
 type BucketNode struct {
     contact Contact
     next, prev  *BucketNode
+}
+
+func (node *BucketNode) Next() *BucketNode {
+    return node.next
+}
+
+func (node *BucketNode) Prev() *BucketNode {
+    return node.prev
 }
 
 type BucketList struct {
@@ -16,14 +20,6 @@ type BucketList struct {
 
 func (list *BucketList) First() *BucketNode {
     return list.head
-}
-
-func (node *BucketNode) Next() *BucketNode {
-    return node.next
-}
-
-func (node *BucketNode) Prev() *BucketNode {
-    return node.prev
 }
 
 func (list *BucketList) Push(contact Contact) *BucketList {

@@ -103,15 +103,6 @@ func (e *CommandFailed) Error() string {
 	return fmt.Sprintf("%s", e.msg)
 }
 
-/*
-type Contact struct {
-	NodeID ID
-	Host   net.IP
-	Port   uint16
-}
-
-*/
-
 func (k *Kademlia) Update(contact Contact) {
 	headContact := k.RoutingTable.RecordContact(k.NodeID, contact)
 	if headContact != nil {
@@ -143,7 +134,6 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 			"Unable to ping " + fmt.Sprintf("%s:%v", host.String(), port)}
 	}
 	k.Update(pongMessage.Sender)
-	// TODO
 	return nil, nil
 }
 
