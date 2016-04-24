@@ -41,6 +41,9 @@ func (table *RoutingTable) RecordContact(selfId ID, contact Contact) *Contact {
 	if nodeOfContact != nil {
 		previousNode := nodeOfContact.Prev()
 		afterNode := nodeOfContact.Next()
+		if previousNode == nil || afterNode == nil {
+			return nil
+		}
 		previousNode.next = afterNode
 		afterNode.prev = previousNode
 		locationList.Push(contact)

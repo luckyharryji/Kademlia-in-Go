@@ -18,11 +18,15 @@ const (
 	k     = 20
 )
 
+// var clientIdToChannel = make(map[string] chan string)
+
+type LocalData map[ID][]byte
 // Kademlia type. You can put whatever state you need in this.
 type Kademlia struct {
 	NodeID      ID
 	SelfContact Contact
 	RoutingTable *RoutingTable
+	DataTable LocalData
 }
 
 func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
@@ -67,6 +71,9 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	// initialize the routing table for the Kademlia
 	routingTable := NewRoutingTable()
 	k.RoutingTable = routingTable
+	// initilize local data storage hashMap
+	localData := make(LocalData)
+	k.DataTable = localData
 	return k
 }
 
@@ -139,7 +146,19 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 
 func (k *Kademlia) DoStore(contact *Contact, key ID, value []byte) error {
 	// TODO: Implement
-	return &CommandFailed{"Not implemented"}
+	clientContact := k.SelfContact
+	storePacket := StoreRequest{Sender: clientContact, MsgID: contact.NodeID, Key: key, Value: value}
+	var response StoreResult
+
+	address := contact.Host.String() + ":" + strconv.FormatInt(int64(contact.Port), 10)
+	path := rpc.DefaultRPCPath + strconv.Itoa(int(contact.Port))
+	client, err := rpc.DialHTTPPath("tcp", address, path)
+	err = client.Call("KademliaRPC.Store", storePacket, &response)
+	if err != nil {
+		log.Fatal("Call: ", err)
+		return &CommandFailed{"Unable to Store "}
+	}
+	return nil
 }
 
 func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error) {
@@ -153,9 +172,22 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 	return nil, nil, &CommandFailed{"Not implemented"}
 }
 
+/*
+Important !!!
+rewrite to be channel !!
+*/
+func (k *Kademlia) LocalStoreValue(key ID, value []byte) error {
+	k.DataTable[key] = value
+	return nil
+}
+
 func (k *Kademlia) LocalFindValue(searchKey ID) ([]byte, error) {
 	// TODO: Implement
-	return []byte(""), &CommandFailed{"Not implemented"}
+	if data, exist := k.DataTable[searchKey]; exist{
+		return data, nil
+	} else {
+		return []byte(""), &CommandFailed{"Not Found"}
+	}
 }
 
 // For project 2!
