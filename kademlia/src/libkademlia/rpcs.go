@@ -38,6 +38,8 @@ func (k *KademliaRPC) Ping(ping PingMessage, pong *PongMessage) error {
 	pong.MsgID = CopyID(ping.MsgID)
 	// Specify the sender
 	// Update contact, etc
+	update := updatecommand{ping.Sender}
+	k.kademlia.updatechannel <- update
 	return nil
 }
 
@@ -58,6 +60,10 @@ type StoreResult struct {
 
 func (k *KademliaRPC) Store(req StoreRequest, res *StoreResult) error {
 	// TODO: Implement.
+	k.kademlia.hash[req.Key] = req.Value
+	res.MsgID = CopyID(req.MsgID)
+	update := updatecommand{req.Sender}
+	k.kademlia.updatechannel <- update
 	return nil
 }
 
@@ -78,6 +84,15 @@ type FindNodeResult struct {
 
 func (k *KademliaRPC) FindNode(req FindNodeRequest, res *FindNodeResult) error {
 	// TODO: Implement.
+	res.MsgID = CopyID(req.MsgID)
+	update := updatecommand{req.Sender}
+	k.kademlia.updatechannel <- update
+	clientid := NewRandomID()
+	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 1}
+	k.kademlia.registerchannel <- client
+	k.kademlia.findchannel <- findcommand{clientid, req.NodeID, 1}
+	result := <-client.findchan
+	res.Nodes = result.Nodes
 	return nil
 }
 
@@ -101,6 +116,17 @@ type FindValueResult struct {
 
 func (k *KademliaRPC) FindValue(req FindValueRequest, res *FindValueResult) error {
 	// TODO: Implement.
+	res.MsgID = CopyID(req.MsgID)
+	update := updatecommand{req.Sender}
+	k.kademlia.updatechannel <- update
+	clientid := NewRandomID()
+	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 1}
+	k.kademlia.registerchannel <- client
+	k.kademlia.findchannel <- findcommand{clientid, req.Key, 2}
+	result := <-client.findchan
+	res.Value = result.Value
+	res.Nodes = result.Nodes
+	res.Err = nil
 	return nil
 }
 

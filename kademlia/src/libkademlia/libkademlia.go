@@ -20,14 +20,51 @@ const (
 
 // Kademlia type. You can put whatever state you need in this.
 type Kademlia struct {
-	NodeID      ID
-	SelfContact Contact
-	table       *RoutingTable
+	NodeID          ID
+	SelfContact     Contact
+	hash            map[ID][]byte
+	updatechannel   chan updatecommand
+	findchannel     chan findcommand
+	registerchannel chan Client
+	table           *RoutingTable
+}
+
+type updatecommand struct {
+	contact Contact
+}
+
+type findcommand struct {
+	clientid ID
+	key      ID
+	num      int
+}
+
+type findresult struct {
+	Nodes []Contact
+	Value []byte
+	err   error
+}
+
+type contactresult struct {
+	node *Contact
+}
+
+type Client struct {
+	findchan    chan findresult
+	contactchan chan contactresult
+	id          ID
+	num         int
 }
 
 func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k := new(Kademlia)
 	k.NodeID = nodeID
+	k.table = NewRoutingTable(nodeID)
+	k.updatechannel = make(chan updatecommand)
+	k.findchannel = make(chan findcommand)
+	k.registerchannel = make(chan Client)
+	k.hash = make(map[ID][]byte)
+	go k.HandleTable()
 	// TODO: Initialize other state here as you add functionality.
 	kRPC := new(KademliaRPC)
 	kRPC.kademlia = k
@@ -65,6 +102,43 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	return k
 }
 
+func (k *Kademlia) HandleTable() {
+	Hashforfind := make(map[ID]chan findresult)
+	Hashforcontact := make(map[ID]chan contactresult)
+	for {
+		select {
+		case client := <-k.registerchannel:
+			number := client.num
+			switch number {
+			case 1:
+				Hashforfind[client.id] = client.findchan
+			case 2:
+				Hashforcontact[client.id] = client.contactchan
+			}
+		case cmd := <-k.updatechannel:
+			k.table.UpDate(k, cmd.contact)
+		case cmd := <-k.findchannel:
+			number := cmd.num
+			switch number {
+			case 1:
+				nodes := k.table.FindCloset(cmd.key)
+				result := findresult{nodes, nil, nil}
+				Hashforfind[cmd.clientid] <- result
+			case 2:
+				value, _ := k.LocalFindValue(cmd.key)
+				nodes := k.table.FindCloset(cmd.key)
+				result := findresult{nodes, value, nil}
+				Hashforfind[cmd.clientid] <- result
+			case 3:
+				node := k.table.FindContact(cmd.key)
+				Hashforcontact[cmd.clientid] <- contactresult{node}
+			}
+		default:
+			continue
+		}
+	}
+}
+
 func NewKademlia(laddr string) *Kademlia {
 	return NewKademliaWithId(laddr, NewRandomID())
 }
@@ -83,6 +157,14 @@ func (k *Kademlia) FindContact(nodeId ID) (*Contact, error) {
 	// Find contact with provided ID
 	if nodeId == k.SelfContact.NodeID {
 		return &k.SelfContact, nil
+	}
+	clientid := NewRandomID()
+	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 2}
+	k.registerchannel <- client
+	k.findchannel <- findcommand{clientid, nodeId, 3}
+	result := <-client.contactchan
+	if result.node != nil {
+		return result.node, nil
 	}
 	return nil, &ContactNotFoundError{nodeId, "Not found"}
 }
@@ -111,6 +193,7 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 		return nil, err
 	}
 	result := pong.Sender
+	k.updatechannel <- updatecommand{result}
 	return &result, nil
 }
 
@@ -127,6 +210,7 @@ func (k *Kademlia) DoStore(contact *Contact, key ID, value []byte) error {
 	if err != nil {
 		log.Fatal("CallDoStore:", err)
 	}
+	k.updatechannel <- updatecommand{*contact}
 	return err
 }
 
@@ -144,6 +228,10 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 		log.Fatal("Call DoFindNode", err)
 	}
 	if result.Err == nil {
+		k.updatechannel <- updatecommand{*contact}
+		for _, node := range result.Nodes {
+			k.updatechannel <- updatecommand{node}
+		}
 		return result.Nodes, result.Err
 	}
 	return nil, result.Err
@@ -164,6 +252,10 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 		log.Fatal("Call DoFindValue:", err)
 	}
 	if result.Err == nil {
+		k.updatechannel <- updatecommand{*contact}
+		for _, element := range result.Nodes {
+			k.updatechannel <- updatecommand{element}
+		}
 		return result.Value, result.Nodes, nil
 	}
 	return nil, nil, result.Err
@@ -171,7 +263,11 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 
 func (k *Kademlia) LocalFindValue(searchKey ID) ([]byte, error) {
 	// TODO: Implement
-	return []byte(""), &CommandFailed{"Not implemented"}
+	result, ok := k.hash[searchKey]
+	if ok {
+		return result, nil
+	}
+	return []byte(""), &CommandFailed{"No such element"}
 }
 
 // For project 2!
