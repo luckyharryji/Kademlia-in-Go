@@ -243,7 +243,7 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 	client, err := rpc.DialHTTPPath("tcp", address, path)
 	err = client.Call("KademliaRPC.FindNode", request, &result)
 	if err != nil {
-		log.Fatal("Call DoFindNode", err)
+		log.Fatal("Call DoFindNode Error: ", err)
 	}
 	if result.Err == nil {
 		k.updatechannel <- updatecommand{*contact}

@@ -7,7 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
-	"net/rpc"
+	// "net/rpc"
 	"os"
 	"strconv"
 	"strings"
@@ -50,26 +50,27 @@ func main() {
 	// Confirm our server is up with a PING request and then exit.
 	// Your code should loop forever, reading instructions from stdin and
 	// printing their results to stdout. See README.txt for more details.
-	_, port, err := net.SplitHostPort(firstPeerStr)
-	client, err := rpc.DialHTTPPath("tcp", firstPeerStr,
-		rpc.DefaultRPCPath+port)
-	if err != nil {
-		log.Fatal("DialHTTP: ", err)
-	}
+	// _, port, err := net.SplitHostPort(firstPeerStr)
+	// client, err := rpc.DialHTTPPath("tcp", firstPeerStr,
+	// 	rpc.DefaultRPCPath+port)
+	// if err != nil {
+	// 	log.Fatal("DialHTTP: ", err)
+	// }
 
 	log.Printf("Pinging initial peer\n")
 
 	// This is a sample of what an RPC looks like
 	// TODO: Replace this with a call to your completed DoPing!
-	ping := new(libkademlia.PingMessage)
-	ping.MsgID = libkademlia.NewRandomID()
-	var pong libkademlia.PongMessage
-	err = client.Call("KademliaRPC.Ping", ping, &pong)
-	if err != nil {
-		log.Fatal("Call: ", err)
-	}
-	log.Printf("ping msgID: %s\n", ping.MsgID.AsString())
-	log.Printf("pong msgID: %s\n\n", pong.MsgID.AsString())
+	// ping := new(libkademlia.PingMessage)
+	// ping.MsgID = libkademlia.NewRandomID()
+	// var pong libkademlia.PongMessage
+	// err = client.Call("KademliaRPC.Ping", ping, &pong)
+	// if err != nil {
+	// 	log.Fatal("Call: ", err)
+	// }
+	// log.Printf("ping msgID: %s\n", ping.MsgID.AsString())
+	// log.Printf("pong msgID: %s\n\n", pong.MsgID.AsString())
+	initialPing(kadem, firstPeerStr)
 
 	in := bufio.NewReader(os.Stdin)
 	quit := false
@@ -88,6 +89,57 @@ func main() {
 			quit = true
 		} else if resp != "" {
 			fmt.Printf("%v\n", resp)
+		}
+	}
+}
+
+
+func initialPing(k *libkademlia.Kademlia, obejctNode string) {
+	id, err := libkademlia.IDFromString(obejctNode)
+	if err != nil {
+		hostname, portstr, err := net.SplitHostPort(obejctNode)
+		if err != nil {
+			log.Printf("Initial Ping Error")
+			return
+		}
+		port, err := strconv.Atoi(portstr)
+		if err != nil {
+			log.Printf("ERR: Not a valid Node ID or host:port address")
+			return
+		}
+		ipAddrStrings, err := net.LookupHost(hostname)
+		if err != nil {
+			log.Printf("ERR: Could not find the provided hostname")
+			return
+		}
+		var host net.IP
+		for i := 0; i < len(ipAddrStrings); i++ {
+			host = net.ParseIP(ipAddrStrings[i])
+			if host.To4() != nil {
+				break
+			}
+		}
+		fmt.Println(host, port)
+		contact, err := k.DoPing(host, uint16(port))
+		if err != nil {
+			log.Printf("ERR: %s", err)
+			return
+		} else {
+			log.Printf("OK: %s", contact.NodeID.AsString())
+			return
+		}
+	} else {
+		c, err := k.FindContact(id)
+		if err != nil {
+			log.Printf("ERR: Not a valid Node ID or host:port address")
+			return
+		}
+		contact, err := k.DoPing(c.Host, c.Port)
+		if err != nil {
+			log.Printf("ERR: %s", err)
+		} else {
+			log.Printf( "OK: " + contact.NodeID.AsString())
+			return
 		}
 	}
 }
