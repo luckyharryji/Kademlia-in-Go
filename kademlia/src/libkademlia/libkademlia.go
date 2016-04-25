@@ -128,19 +128,20 @@ func (k *Kademlia) HandleTable() {
 				nodes := k.table.FindCloset(cmd.key)
 				result := findresult{nodes, nil, nil}
 				Hashforfind[cmd.clientid] <- result
+				delete(Hashforfind, cmd.clientid)
 			case 2:
 				//find value
 				value, _ := k.LocalFindValue(cmd.key)
 				nodes := k.table.FindCloset(cmd.key)
 				result := findresult{nodes, value, nil}
 				Hashforfind[cmd.clientid] <- result
+				delete(Hashforfind, cmd.clientid)
 			case 3:
 				//find specific contact
 				node := k.table.FindContact(cmd.key)
 				Hashforcontact[cmd.clientid] <- contactresult{node}
+				delete(Hashforcontact, cmd.clientid)
 			}
-		default:
-			continue
 		}
 	}
 }
@@ -193,14 +194,14 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 		return nil, &CommandFailed{"HTTP Connect Error"}
 	}
 	/*
-	Use channel to decide time out
+		Use channel to decide time out
 	*/
 	errorChannel := make(chan error, 1)
-	go func(){
+	go func() {
 		errorChannel <- client.Call("KademliaRPC.Ping", ping, &pong)
 	}()
 	select {
-	case err := <- errorChannel:
+	case err := <-errorChannel:
 		if err != nil {
 			log.Fatal("CallDoPing:", err)
 			return nil, err

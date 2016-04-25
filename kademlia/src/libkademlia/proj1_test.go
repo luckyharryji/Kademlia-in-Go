@@ -204,12 +204,10 @@ func TestFindValue(t *testing.T) {
 	return
 }
 
-
-
 func TestReturnKContact(t *testing.T) {
 	/*
-	Test to see if findValue return exactly k contact even if it sotres more
-	than K nodes information
+		Test to see if findValue return exactly k contact even if it sotres more
+		than K nodes information
 	*/
 
 	// tree structure;
