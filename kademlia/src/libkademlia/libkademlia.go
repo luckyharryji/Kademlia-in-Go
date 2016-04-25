@@ -192,7 +192,6 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	if err != nil {
 		return nil, &CommandFailed{"HTTP Connect Error"}
 	}
-	// err = client.Call("KademliaRPC.Ping", ping, &pong)
 	/*
 	Use channel to decide time out
 	*/
