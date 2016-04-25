@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/rpc"
 	"strconv"
+	"time"
 )
 
 const (
@@ -188,15 +189,28 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	address := host.String() + ":" + strconv.Itoa(int(port))
 	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
 	client, err := rpc.DialHTTPPath("tcp", address, path)
-	err = client.Call("KademliaRPC.Ping", ping, &pong)
 	if err != nil {
-		log.Fatal("CallDoPing:", err)
+		return nil, &CommandFailed{"HTTP Connect Error"}
+	}
+	// err = client.Call("KademliaRPC.Ping", ping, &pong)
+	/*
+	Use channel to decide time out
+	*/
+	errorChannel := make(chan error, 1)
+	go func(){
+		errorChannel <- client.Call("KademliaRPC.Ping", ping, &pong)
+	}()
+	select {
+	case err := <- errorChannel:
+		if err != nil {
+			log.Fatal("CallDoPing:", err)
+			return nil, err
+		}
+	case <-time.After(10 * time.Second):
+		return nil, &CommandFailed{"Time Out"}
 	}
 	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
 	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
-	if err != nil {
-		return nil, err
-	}
 	result := pong.Sender
 	k.updatechannel <- updatecommand{result}
 	return &result, nil
