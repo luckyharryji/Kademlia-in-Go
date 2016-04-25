@@ -10,7 +10,7 @@ type RoutingTable struct {
 func NewRoutingTable(id ID) (table *RoutingTable) {
 	table = new(RoutingTable)
 	table.SelfId = id
-	for i := 0; i < 8*IDBytes; i++ {
+	for i := 0; i < 8 * IDBytes; i++ {
 		table.BucketLists[i] = new(BucketList)
 	}
 	return
@@ -48,39 +48,32 @@ func (table *RoutingTable) FindContact(nodeid ID) *Contact {
 	return nil
 }
 
-func (table *RoutingTable) FindCloset(nodeid ID) []Contact {
-	prefixlen := nodeid.Xor(table.SelfId).PrefixLen()
+func CreateShortList(contactList *[]Contact, list *BucketList, count *int) {
+	for e := list.head; e != nil; e = e.Next() {
+		if *count < k {
+			*contactList = append(*contactList, e.contact)
+			*count++
+		} else {
+			return
+		}
+	}
+}
+
+func (table *RoutingTable) FindCloset(id ID) []Contact {
+	prefixlen := id.Xor(table.SelfId).PrefixLen()
 	bucket := table.BucketLists[prefixlen]
-	result := make([]Contact, 0)
+	var shortlist []Contact
 	count := 0
-	for n := bucket.First(); n != nil; n = n.Next() {
-		result = append(result, n.contact)
-		count++
-	}
-	i := 1
-	for count < 20 && (prefixlen-i >= 0 || prefixlen+i < 160) {
-		if prefixlen-i >= 0 {
+	CreateShortList(&shortlist, bucket, &count)
+	for i := 1; (prefixlen - i >= 0 || prefixlen + i < b) && count <= k; i++ {
+		if prefixlen - i >= 0 {
 			bucket = table.BucketLists[prefixlen-i]
-			for e := bucket.First(); e != nil; e = e.Next() {
-				result = append(result, e.contact)
-				count++
-			}
+			CreateShortList(&shortlist, bucket, &count)
 		}
-		if prefixlen+i < 160 {
+		if prefixlen + i < b {
 			bucket = table.BucketLists[prefixlen+i]
-			for e := bucket.First(); e != nil; e = e.Next() {
-				result = append(result, e.contact)
-				count++
-			}
+			CreateShortList(&shortlist, bucket, &count)
 		}
-		i++
 	}
-	if count > 20 {
-		temp := make([]Contact, 0)
-		for i := 0; i < 20; i++ {
-			temp = append(temp, result[i])
-		}
-		return temp
-	}
-	return result
+	return shortlist
 }

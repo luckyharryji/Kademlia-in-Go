@@ -58,8 +58,14 @@ func (list *BucketList) DeleteFrontInsert(contact Contact) *BucketList {
 }
 
 func (list *BucketList) MoveToTail(contact Contact) *BucketList {
-	node := list.Find(contact)
-	node.prev = node.next
+	nodeOfContact := list.Find(contact)
+	previousNode := nodeOfContact.Prev()
+	afterNode := nodeOfContact.Next()
+	if previousNode == nil || afterNode == nil {
+		return list
+	}
+	previousNode.next = afterNode
+	afterNode.prev = previousNode
 	list.length -= 1
 	list.Push(contact)
 	return list
