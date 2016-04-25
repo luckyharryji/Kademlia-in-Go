@@ -280,7 +280,6 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 }
 
 func (k *Kademlia) LocalFindValue(searchKey ID) ([]byte, error) {
-	// TODO: Implement
 	result, ok := k.hash[searchKey]
 	if ok {
 		return result, nil

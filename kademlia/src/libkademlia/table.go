@@ -4,7 +4,7 @@ import ()
 
 type RoutingTable struct {
 	SelfId      ID
-	BucketLists [8 * IDBytes]*BucketList
+	BucketLists [b]*BucketList
 }
 
 func NewRoutingTable(id ID) (table *RoutingTable) {
