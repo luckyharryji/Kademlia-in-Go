@@ -33,7 +33,7 @@ func (table *RoutingTable) UpDate(k *Kademlia, contact Contact) {
 			}
 		}
 	} else {
-		bucket.MoveToTail(contact)
+		bucket.MoveToTail(element)
 	}
 }
 

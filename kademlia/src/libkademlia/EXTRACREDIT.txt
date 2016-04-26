@@ -1,0 +1,6 @@
+New test created for Project 1:
+
+- TestReturnKContact:
+    Following the provided TestFindValue, test to see when a client find the
+    non-existing value in a remote server node with more than 30 contacts
+    information, whether the remote server would return exactly k(20) contacts
