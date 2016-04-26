@@ -120,27 +120,26 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	return k
 }
 
+//This is the only function that can have access to the hash table
+//If other functions want to insert or get data from the hash table, they need to send a query through channels
+//In this way, we provide a thread-safe structure to handle hash table
 func (k *Kademlia) HandleHash() {
 	for {
-		select {
-		case cmd := <-k.hashchannel:
-			number := cmd.cmd
-			switch number {
-			case 1:
-				k.hash[cmd.key] = cmd.value
-			case 2:
-				result, ok := k.hash[cmd.key]
-				cmd.returnchannel <- hashreturn{result, ok}
-			}
-		default:
-			continue
+		cmd := <-k.hashchannel
+		number := cmd.cmd
+		switch number {
+		case 1:
+			k.hash[cmd.key] = cmd.value
+		case 2:
+			result, ok := k.hash[cmd.key]
+			cmd.returnchannel <- hashreturn{result, ok}
 		}
 	}
 }
 
 //This is the only function that can have access to the routing table
 //If other functions want to insert or get data from the routing table, they need to send a query through channels
-//In this way, we provide a thread-safe structure
+//In this way, we provide a thread-safe structure to handle routing table
 func (k *Kademlia) HandleTable() {
 	Hashforfind := make(map[ID]chan findresult)
 	Hashforcontact := make(map[ID]chan contactresult)
