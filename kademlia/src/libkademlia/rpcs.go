@@ -60,7 +60,7 @@ type StoreResult struct {
 
 func (k *KademliaRPC) Store(req StoreRequest, res *StoreResult) error {
 	// TODO: Implement.
-	k.kademlia.hash[req.Key] = req.Value
+	k.kademlia.hashchannel <- hashcommand{req.Key, 1, req.Value, make(chan hashreturn)}
 	res.MsgID = CopyID(req.MsgID)
 	update := updatecommand{req.Sender}
 	k.kademlia.updatechannel <- update

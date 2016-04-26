@@ -24,10 +24,18 @@ type Kademlia struct {
 	NodeID          ID
 	SelfContact     Contact
 	hash            map[ID][]byte
+	hashchannel     chan hashcommand
 	updatechannel   chan updatecommand
 	findchannel     chan findcommand
 	registerchannel chan Client
 	table           *RoutingTable
+}
+
+type hashcommand struct {
+	key           ID
+	cmd           int
+	value         []byte
+	returnchannel chan hashreturn
 }
 
 type updatecommand struct {
@@ -60,6 +68,11 @@ type Client struct {
 	num         int
 }
 
+type hashreturn struct {
+	value []byte
+	ok    bool
+}
+
 func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k := new(Kademlia)
 	k.NodeID = nodeID
@@ -68,7 +81,9 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k.findchannel = make(chan findcommand)
 	k.registerchannel = make(chan Client)
 	k.hash = make(map[ID][]byte)
+	k.hashchannel = make(chan hashcommand)
 	go k.HandleTable()
+	go k.HandleHash()
 	// TODO: Initialize other state here as you add functionality.
 	kRPC := new(KademliaRPC)
 	kRPC.kademlia = k
@@ -104,6 +119,24 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	}
 	k.SelfContact = Contact{k.NodeID, host, uint16(port_int)}
 	return k
+}
+
+func (k *Kademlia) HandleHash() {
+	for {
+		select {
+		case cmd := <-k.hashchannel:
+			number := cmd.cmd
+			switch number {
+			case 1:
+				k.hash[cmd.key] = cmd.value
+			case 2:
+				result, ok := k.hash[cmd.key]
+				cmd.returnchannel <- hashreturn{result, ok}
+			}
+		default:
+			continue
+		}
+	}
 }
 
 //This is the only function that can have access to the routing table
@@ -287,9 +320,11 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 }
 
 func (k *Kademlia) LocalFindValue(searchKey ID) ([]byte, error) {
-	result, ok := k.hash[searchKey]
-	if ok {
-		return result, nil
+	req := hashcommand{searchKey, 2, nil, make(chan hashreturn)}
+	k.hashchannel <- req
+	result := <-req.returnchannel
+	if result.ok {
+		return result.value, nil
 	}
 	return []byte(""), &CommandFailed{"No such element"}
 }
