@@ -10,7 +10,7 @@ type RoutingTable struct {
 func NewRoutingTable(id ID) (table *RoutingTable) {
 	table = new(RoutingTable)
 	table.SelfId = id
-	for i := 0; i < 8 * IDBytes; i++ {
+	for i := 0; i < 8*IDBytes; i++ {
 		table.BucketLists[i] = new(BucketList)
 	}
 	return
@@ -28,6 +28,7 @@ func (table *RoutingTable) UpDate(k *Kademlia, contact Contact) {
 		} else {
 			firstnode := bucket.First()
 			_, err := k.DoPing(firstnode.contact.Host, firstnode.contact.Port)
+			//If the node is not alive, update the table
 			if err != nil {
 				bucket.DeleteFrontInsert(contact)
 			}
@@ -65,12 +66,12 @@ func (table *RoutingTable) FindCloset(id ID) []Contact {
 	var shortlist []Contact
 	count := 0
 	CreateShortList(&shortlist, bucket, &count)
-	for i := 1; (prefixlen - i >= 0 || prefixlen + i < b) && count <= k; i++ {
-		if prefixlen - i >= 0 {
+	for i := 1; (prefixlen-i >= 0 || prefixlen+i < b) && count <= k; i++ {
+		if prefixlen-i >= 0 {
 			bucket = table.BucketLists[prefixlen-i]
 			CreateShortList(&shortlist, bucket, &count)
 		}
-		if prefixlen + i < b {
+		if prefixlen+i < b {
 			bucket = table.BucketLists[prefixlen+i]
 			CreateShortList(&shortlist, bucket, &count)
 		}

@@ -93,7 +93,6 @@ func main() {
 	}
 }
 
-
 func initialPing(k *libkademlia.Kademlia, obejctNode string) {
 	id, err := libkademlia.IDFromString(obejctNode)
 	if err != nil {
@@ -138,7 +137,7 @@ func initialPing(k *libkademlia.Kademlia, obejctNode string) {
 		if err != nil {
 			log.Printf("ERR: %s", err)
 		} else {
-			log.Printf( "OK: " + contact.NodeID.AsString())
+			log.Printf("OK: " + contact.NodeID.AsString())
 			return
 		}
 	}
