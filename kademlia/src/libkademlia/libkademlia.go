@@ -40,16 +40,19 @@ type findcommand struct {
 	num      int
 }
 
+//result for "find values and nodes"
 type findresult struct {
 	Nodes []Contact
 	Value []byte
 	err   error
 }
 
+//result for "find contact"
 type contactresult struct {
 	node *Contact
 }
 
+//struct for registering in handtable function
 type Client struct {
 	findchan    chan findresult
 	contactchan chan contactresult
@@ -103,6 +106,9 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	return k
 }
 
+//This is the only function that can have access to the routing table
+//If other functions want to insert or get data from the routing table, they need to send a query through channels
+//In this way, we provide a thread-safe structure
 func (k *Kademlia) HandleTable() {
 	Hashforfind := make(map[ID]chan findresult)
 	Hashforcontact := make(map[ID]chan contactresult)
@@ -113,9 +119,9 @@ func (k *Kademlia) HandleTable() {
 			number := client.num
 			switch number {
 			case 1:
-				Hashforfind[client.id] = client.findchan
+				Hashforfind[client.id] = client.findchan //store the channel for sending result back
 			case 2:
-				Hashforcontact[client.id] = client.contactchan
+				Hashforcontact[client.id] = client.contactchan //store the channel for sending result back
 			}
 		case cmd := <-k.updatechannel:
 			//update the routingtable
@@ -165,11 +171,11 @@ func (k *Kademlia) FindContact(nodeId ID) (*Contact, error) {
 	if nodeId == k.SelfContact.NodeID {
 		return &k.SelfContact, nil
 	}
-	clientid := NewRandomID()
+	clientid := NewRandomID() //clientid is the key for register a new thread
 	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 2}
-	k.registerchannel <- client
-	k.findchannel <- findcommand{clientid, nodeId, 3}
-	result := <-client.contactchan
+	k.registerchannel <- client                       //register through channel
+	k.findchannel <- findcommand{clientid, nodeId, 3} //send query through channel
+	result := <-client.contactchan                    //get result from channel
 	if result.node != nil {
 		return result.node, nil
 	}
