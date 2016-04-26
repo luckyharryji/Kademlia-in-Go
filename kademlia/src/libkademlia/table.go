@@ -69,11 +69,13 @@ func (table *RoutingTable) FindContact(nodeid ID) *Contact {
 	CreateShortList will add the node in the list to the result list
 	FindCloest will loop until: get all nodes/get 20 nodes
 */
-func CreateShortList(contactList *[]Contact, list *BucketList, count *int) {
+func CreateShortList(contactList *[]Contact, list *BucketList, count *int, id ID) {
 	for e := list.head; e != nil; e = e.Next() {
 		if *count < k {
-			*contactList = append(*contactList, e.contact)
-			*count++
+			if !id.Equals(e.contact.NodeID){
+				*contactList = append(*contactList, e.contact)
+				*count++
+			}
 		} else {
 			return
 		}
@@ -85,15 +87,15 @@ func (table *RoutingTable) FindCloset(id ID) []Contact {
 	bucket := table.BucketLists[prefixlen]
 	var shortlist []Contact
 	count := 0
-	CreateShortList(&shortlist, bucket, &count)
+	CreateShortList(&shortlist, bucket, &count, id)
 	for i := 1; (prefixlen-i >= 0 || prefixlen+i < b) && count <= k; i++ {
 		if prefixlen-i >= 0 {
 			bucket = table.BucketLists[prefixlen-i]
-			CreateShortList(&shortlist, bucket, &count)
+			CreateShortList(&shortlist, bucket, &count, id)
 		}
 		if prefixlen+i < b {
 			bucket = table.BucketLists[prefixlen+i]
-			CreateShortList(&shortlist, bucket, &count)
+			CreateShortList(&shortlist, bucket, &count, id)
 		}
 	}
 	return shortlist
