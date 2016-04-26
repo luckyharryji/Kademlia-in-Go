@@ -83,6 +83,7 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k.hash = make(map[ID][]byte)
 	k.hashchannel = make(chan hashcommand)
 	go k.HandleTable()
+	go k.HandleHash()
 	kRPC := new(KademliaRPC)
 	kRPC.kademlia = k
 	// Set up RPC server
