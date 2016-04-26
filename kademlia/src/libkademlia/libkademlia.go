@@ -69,7 +69,7 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k.registerchannel = make(chan Client)
 	k.hash = make(map[ID][]byte)
 	go k.HandleTable()
-	// TODO: Initialize other state here as you add functionality.
+
 	kRPC := new(KademliaRPC)
 	kRPC.kademlia = k
 	// Set up RPC server
@@ -166,7 +166,7 @@ func (e *ContactNotFoundError) Error() string {
 }
 
 func (k *Kademlia) FindContact(nodeId ID) (*Contact, error) {
-	// TODO: Search through contacts, find specified ID
+	// Search through contacts, find specified ID
 	// Find contact with provided ID
 	if nodeId == k.SelfContact.NodeID {
 		return &k.SelfContact, nil
@@ -231,16 +231,28 @@ func (k *Kademlia) DoStore(contact *Contact, key ID, value []byte) error {
 	address := host + ":" + port
 	path := rpc.DefaultRPCPath + port
 	client, err := rpc.DialHTTPPath("tcp", address, path)
-	err = client.Call("KademliaRPC.Store", request, &result)
 	if err != nil {
-		log.Fatal("CallDoStore:", err)
+		return &CommandFailed{"HTTP Connect Error"}
 	}
+	errorChannel := make(chan error, 1)
+	go func() {
+		errorChannel <- client.Call("KademliaRPC.Store", request, &result)
+	}()
+	select {
+	case err := <-errorChannel:
+		if err != nil {
+			log.Fatal("CallDoStore:", err)
+			return err
+		}
+	case <-time.After(10 * time.Second):
+		return &CommandFailed{"Time Out"}
+	}
+
 	k.updatechannel <- updatecommand{*contact}
 	return err
 }
 
 func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error) {
-	// TODO: Implement
 	request := FindNodeRequest{k.SelfContact, NewRandomID(), searchKey}
 	var result FindNodeResult
 	host := contact.Host.String()
@@ -248,10 +260,23 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 	address := host + ":" + port
 	path := rpc.DefaultRPCPath + port
 	client, err := rpc.DialHTTPPath("tcp", address, path)
-	err = client.Call("KademliaRPC.FindNode", request, &result)
 	if err != nil {
-		log.Fatal("Call DoFindNode Error: ", err)
+		return nil, &CommandFailed{"HTTP Connect Error"}
 	}
+	errorChannel := make(chan error, 1)
+	go func() {
+		errorChannel <- client.Call("KademliaRPC.FindNode", request, &result)
+	}()
+	select {
+	case err := <-errorChannel:
+		if err != nil {
+			log.Fatal("Call DoFindNode Error: ", err)
+			return nil, err
+		}
+	case <-time.After(10 * time.Second):
+		return nil, &CommandFailed{"Time Out"}
+	}
+
 	if result.Err == nil {
 		k.updatechannel <- updatecommand{*contact}
 		for _, node := range result.Nodes {
@@ -264,7 +289,7 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 
 func (k *Kademlia) DoFindValue(contact *Contact,
 	searchKey ID) (value []byte, contacts []Contact, err error) {
-	// TODO: Implement
+
 	request := FindValueRequest{k.SelfContact, NewRandomID(), searchKey}
 	var result FindValueResult
 	host := contact.Host.String()
@@ -272,10 +297,25 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 	address := host + ":" + port
 	path := rpc.DefaultRPCPath + port
 	client, err := rpc.DialHTTPPath("tcp", address, path)
-	err = client.Call("KademliaRPC.FindValue", request, &result)
+
 	if err != nil {
-		log.Fatal("Call DoFindValue:", err)
+		return nil, nil, &CommandFailed{"HTTP Connect Error"}
 	}
+
+	errorChannel := make(chan error, 1)
+	go func() {
+		errorChannel <- client.Call("KademliaRPC.FindValue", request, &result)
+	}()
+	select {
+	case err := <-errorChannel:
+		if err != nil {
+			log.Fatal("Call DoFindValue:", err)
+			return nil, nil, err
+		}
+	case <-time.After(10 * time.Second):
+		return nil, nil, &CommandFailed{"Time Out"}
+	}
+
 	if result.Err == nil {
 		k.updatechannel <- updatecommand{*contact}
 		for _, element := range result.Nodes {

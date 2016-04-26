@@ -1,12 +1,13 @@
 package libkademlia
 
-import ()
-
 type RoutingTable struct {
 	SelfId      ID
 	BucketLists [b]*BucketList
 }
 
+/*
+	Create a new K-Buckets Object
+*/
 func NewRoutingTable(id ID) (table *RoutingTable) {
 	table = new(RoutingTable)
 	table.SelfId = id
@@ -16,6 +17,17 @@ func NewRoutingTable(id ID) (table *RoutingTable) {
 	return
 }
 
+/*
+	Update K-Buckets
+
+	If did not find contact:
+		- if length of the list is less than 20
+		- else ping the head of the list
+			- if the head is still alive, ingore the new contact
+			- else, delete the head and insert new contact to the tail
+	else:
+	 	- move the contact to the end
+*/
 func (table *RoutingTable) UpDate(k *Kademlia, contact Contact) {
 	id_table := table.SelfId
 	id := contact.NodeID
@@ -49,6 +61,14 @@ func (table *RoutingTable) FindContact(nodeid ID) *Contact {
 	return nil
 }
 
+
+/*
+	Find the k-nearest node for the given contact
+	Manipulate with pointer type
+
+	CreateShortList will add the node in the list to the result list
+	FindCloest will loop until: get all nodes/get 20 nodes
+*/
 func CreateShortList(contactList *[]Contact, list *BucketList, count *int) {
 	for e := list.head; e != nil; e = e.Next() {
 		if *count < k {

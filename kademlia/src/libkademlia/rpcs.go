@@ -33,11 +33,8 @@ type PongMessage struct {
 }
 
 func (k *KademliaRPC) Ping(ping PingMessage, pong *PongMessage) error {
-	// TODO: Finish implementation
 	pong.Sender = k.kademlia.SelfContact
 	pong.MsgID = CopyID(ping.MsgID)
-	// Specify the sender
-	// Update contact, etc
 	update := updatecommand{ping.Sender}
 	k.kademlia.updatechannel <- update
 	return nil
@@ -83,7 +80,6 @@ type FindNodeResult struct {
 }
 
 func (k *KademliaRPC) FindNode(req FindNodeRequest, res *FindNodeResult) error {
-	// TODO: Implement.
 	res.MsgID = CopyID(req.MsgID)
 	update := updatecommand{req.Sender}
 	k.kademlia.updatechannel <- update
@@ -115,7 +111,6 @@ type FindValueResult struct {
 }
 
 func (k *KademliaRPC) FindValue(req FindValueRequest, res *FindValueResult) error {
-	// TODO: Implement.
 	res.MsgID = CopyID(req.MsgID)
 	update := updatecommand{req.Sender}
 	k.kademlia.updatechannel <- update
