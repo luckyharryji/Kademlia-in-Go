@@ -98,7 +98,7 @@ func (list *BucketList) DeleteFrontInsert(contact Contact) *BucketList {
 	If the node is the head/last node in the list, return immediately.
 
 	Args:
-		contact(Contact)
+		contactNode(*BucketNode)
 	Return:
 		*BucketLists
 */
