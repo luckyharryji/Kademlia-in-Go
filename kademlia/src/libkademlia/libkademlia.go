@@ -248,6 +248,9 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	}
 	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
 	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
+	if !ping.MsgID.Equals(pong.MsgID) {
+		return nil, &CommandFailed{"Wrong MsgID"}
+	}
 	result := pong.Sender
 	k.updatechannel <- updatecommand{result}
 	return &result, nil
@@ -278,7 +281,9 @@ func (k *Kademlia) DoStore(contact *Contact, key ID, value []byte) error {
 	case <-time.After(10 * time.Second):
 		return &CommandFailed{"Time Out"}
 	}
-
+	if !request.MsgID.Equals(result.MsgID) {
+		return &CommandFailed{"Wrong MsgID"}
+	}
 	k.updatechannel <- updatecommand{*contact}
 	return err
 }
@@ -307,7 +312,9 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 	case <-time.After(10 * time.Second):
 		return nil, &CommandFailed{"Time Out"}
 	}
-
+	if !request.MsgID.Equals(result.MsgID) {
+		return nil, &CommandFailed{"Wrong MsgID"}
+	}
 	if result.Err == nil {
 		k.updatechannel <- updatecommand{*contact}
 		for _, node := range result.Nodes {
@@ -345,6 +352,10 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 		}
 	case <-time.After(10 * time.Second):
 		return nil, nil, &CommandFailed{"Time Out"}
+	}
+
+	if !request.MsgID.Equals(result.MsgID) {
+		return nil, nil, &CommandFailed{"Wrong MsgID"}
 	}
 
 	if result.Err == nil {
