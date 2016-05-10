@@ -3,7 +3,7 @@ package libkademlia
 import ()
 
 type PriorityQueue struct {
-	List   []*Contact
+	List   []Contact
 	NodeID ID
 }
 
@@ -18,7 +18,7 @@ func contactLess(c1, c2 *Contact, key ID) bool {
 }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return contactLess(pq.List[i], pq.List[j], pq.NodeID)
+	return contactLess(&pq.List[i], &pq.List[j], pq.NodeID)
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
@@ -34,5 +34,5 @@ func (pq *PriorityQueue) Pop() interface{} {
 }
 
 func (pq *PriorityQueue) Push(x interface{}) {
-	pq.List = append(pq.List, x.(*Contact))
+	pq.List = append(pq.List, x.(Contact))
 }

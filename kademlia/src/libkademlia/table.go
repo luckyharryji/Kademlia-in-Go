@@ -61,7 +61,6 @@ func (table *RoutingTable) FindContact(nodeid ID) *Contact {
 	return nil
 }
 
-
 /*
 	Find the k-nearest node for the given contact
 	Manipulate with pointer type
@@ -72,7 +71,7 @@ func (table *RoutingTable) FindContact(nodeid ID) *Contact {
 func CreateShortList(contactList *[]Contact, list *BucketList, count *int, id ID) {
 	for e := list.head; e != nil; e = e.Next() {
 		if *count < k {
-			if !id.Equals(e.contact.NodeID){
+			if !id.Equals(e.contact.NodeID) {
 				*contactList = append(*contactList, e.contact)
 				*count++
 			}
@@ -80,6 +79,25 @@ func CreateShortList(contactList *[]Contact, list *BucketList, count *int, id ID
 			return
 		}
 	}
+}
+
+func (table *RoutingTable) FindAlpha(id ID) []Contact {
+	prefixlen := id.Xor(table.SelfId).PrefixLen()
+	bucket := table.BucketLists[prefixlen]
+	var shortlist []Contact
+	count := 0
+	CreateShortList(&shortlist, bucket, &count, id)
+	for i := 1; (prefixlen-i >= 0 || prefixlen+i < b) && count <= 3; i++ {
+		if prefixlen-i >= 0 {
+			bucket = table.BucketLists[prefixlen-i]
+			CreateShortList(&shortlist, bucket, &count, id)
+		}
+		if prefixlen+i < b {
+			bucket = table.BucketLists[prefixlen+i]
+			CreateShortList(&shortlist, bucket, &count, id)
+		}
+	}
+	return shortlist
 }
 
 func (table *RoutingTable) FindCloset(id ID) []Contact {

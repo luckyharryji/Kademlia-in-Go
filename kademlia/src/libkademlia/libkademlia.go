@@ -4,6 +4,7 @@ package libkademlia
 // as a receiver for the RPC methods, which is required by that package.
 
 import (
+	"container/heap"
 	"fmt"
 	"log"
 	"net"
@@ -178,6 +179,12 @@ func (k *Kademlia) HandleTable() {
 				node := k.table.FindContact(cmd.key)
 				Hashforcontact[cmd.clientid] <- contactresult{node}
 				delete(Hashforcontact, cmd.clientid)
+			case 4:
+				//find alpha contact
+				nodes := k.table.FindAlpha(cmd.key)
+				result := findresult{nodes, nil, nil}
+				Hashforfind[cmd.clientid] <- result
+				delete(Hashforfind, cmd.clientid)
 			}
 		}
 	}
@@ -376,6 +383,87 @@ func (k *Kademlia) LocalFindValue(searchKey ID) ([]byte, error) {
 		return result.value, nil
 	}
 	return []byte(""), &CommandFailed{"No such element"}
+}
+
+type iterativeResult struct {
+	success    bool
+	target     Contact
+	activeList []Contact
+	value      []byte
+}
+
+func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan iterativeResult) {
+	if !findValue {
+		result, err := k.DoFindNode(&contact, key)
+		if err != nil {
+			resp <- iterativeResult{false, contact, nil, nil}
+		} else {
+			resp <- iterativeResult{true, contact, result, nil}
+		}
+	}
+}
+
+func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
+	retlist := []Contact{}
+	ret := iterativeResult{true, k.SelfContact, retlist, nil}
+	pq := &PriorityQueue{[]Contact{}, key}
+	heap.Init(pq)
+	clientid := NewRandomID()
+	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 4}
+	k.registerchannel <- client
+	k.findchannel <- findcommand{clientid, key, 4}
+	result := <-client.findchan
+	for _, node := range result.Nodes {
+		heap.Push(pq, node)
+	}
+	lastNode := k.SelfContact
+	closetNode := pq.List[0]
+	activeNodes := []Contact{}
+	nodeSet := make(map[string]bool)
+	for !lastNode.NodeID.Equals(closetNode.NodeID) && len(activeNodes) < 20 && ret.value == nil && pq.Len() > 0 {
+		var p int
+		respChannel := make(chan iterativeResult)
+		for p = 0; p < alpha && pq.Len() > 0; p++ {
+			contact := heap.Pop(pq).(Contact)
+			go k.doFind(contact, key, false, respChannel)
+		}
+		for i := 0; i < p; i++ {
+			result := <-respChannel
+			if result.success {
+				activeNodes = append(activeNodes, result.target)
+				if findValue && result.value != nil {
+					if ret.value == nil {
+						ret.value = result.value
+						ret.target = result.target
+					}
+				} else if result.activeList != nil {
+					for _, value := range result.activeList {
+						if _, ok := nodeSet[value.NodeID.AsString()]; !ok {
+							activeNodes = append(activeNodes, value)
+							nodeSet[value.NodeID.AsString()] = true
+							heap.Push(pq, value)
+						}
+					}
+				}
+			}
+		}
+		lastNode = closetNode
+		if pq.Len() > 0 {
+			temp := pq.List[0]
+			closetNode = ClosetNode(key, temp, closetNode)
+		}
+		close(respChannel)
+	}
+	return ret
+}
+
+func ClosetNode(key ID, c1, c2 Contact) Contact {
+	dist1 := key.Xor(c1.NodeID)
+	dist2 := key.Xor(c2.NodeID)
+	if dist1.Less(dist2) {
+		return c1
+	}
+	return c2
 }
 
 // For project 2!
