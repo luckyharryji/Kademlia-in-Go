@@ -420,36 +420,40 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	closetNode := pq.List[0]
 	activeNodes := []Contact{}
 	nodeSet := make(map[string]bool)
-	for !lastNode.NodeID.Equals(closetNode.NodeID) && len(activeNodes) < 20 && ret.value == nil && pq.Len() > 0 {
-		var p int
-		respChannel := make(chan iterativeResult)
-		interval := 300
-		t := time.NewTicker(time.Duration(interval) * time.Millisecond)
-		go func() {
-			for {
-				for p = 0; p < alpha && pq.Len() > 0; p++ {
+	respChannel := make(chan iterativeResult)
+	interval := 300
+	t := time.NewTicker(time.Duration(interval) * time.Millisecond)
+	quit := make(chan bool)
+	signal := false
+	go func() {
+		for !signal {
+			select {
+			case <-quit:
+				signal = <-quit
+			default:
+				for i := 0; i < alpha && pq.Len() > 0; i++ {
 					contact := heap.Pop(pq).(Contact)
 					go k.doFind(contact, key, findValue, respChannel)
 				}
 				<-t.C
 			}
-		}()
-		for i := 0; i < p; i++ {
-			result := <-respChannel
-			if result.success {
-				activeNodes = append(activeNodes, result.target)
-				if findValue && result.value != nil {
-					if ret.value == nil {
-						ret.value = result.value
-						ret.target = result.target
-					}
-				} else if result.activeList != nil {
-					for _, value := range result.activeList {
-						if _, ok := nodeSet[value.NodeID.AsString()]; !ok {
-							activeNodes = append(activeNodes, value)
-							nodeSet[value.NodeID.AsString()] = true
-							heap.Push(pq, value)
-						}
+		}
+	}()
+	for !lastNode.NodeID.Equals(closetNode.NodeID) && len(activeNodes) < 20 && ret.value == nil && pq.Len() > 0 {
+		result := <-respChannel
+		if result.success {
+			activeNodes = append(activeNodes, result.target)
+			if findValue && result.value != nil {
+				if ret.value == nil {
+					ret.value = result.value
+					ret.target = result.target
+				}
+			} else if result.activeList != nil {
+				for _, value := range result.activeList {
+					if _, ok := nodeSet[value.NodeID.AsString()]; !ok {
+						activeNodes = append(activeNodes, value)
+						nodeSet[value.NodeID.AsString()] = true
+						heap.Push(pq, value)
 					}
 				}
 			}
@@ -459,8 +463,9 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			temp := pq.List[0]
 			closetNode = ClosetNode(key, temp, closetNode)
 		}
-		close(respChannel)
 	}
+	quit <- true
+	close(respChannel)
 	return ret
 }
 
