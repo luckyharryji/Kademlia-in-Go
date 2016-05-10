@@ -423,10 +423,17 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	for !lastNode.NodeID.Equals(closetNode.NodeID) && len(activeNodes) < 20 && ret.value == nil && pq.Len() > 0 {
 		var p int
 		respChannel := make(chan iterativeResult)
-		for p = 0; p < alpha && pq.Len() > 0; p++ {
-			contact := heap.Pop(pq).(Contact)
-			go k.doFind(contact, key, false, respChannel)
-		}
+		interval := 300
+		t := time.NewTicker(time.Duration(interval) * time.Millisecond)
+		go func() {
+			for {
+				for p = 0; p < alpha && pq.Len() > 0; p++ {
+					contact := heap.Pop(pq).(Contact)
+					go k.doFind(contact, key, findValue, respChannel)
+				}
+				<-t.C
+			}
+		}()
 		for i := 0; i < p; i++ {
 			result := <-respChannel
 			if result.success {

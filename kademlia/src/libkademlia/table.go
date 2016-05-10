@@ -87,14 +87,16 @@ func (table *RoutingTable) FindAlpha(id ID) []Contact {
 	var shortlist []Contact
 	count := 0
 	CreateShortList(&shortlist, bucket, &count, id)
-	for i := 1; (prefixlen-i >= 0 || prefixlen+i < b) && count <= 3; i++ {
-		if prefixlen-i >= 0 {
-			bucket = table.BucketLists[prefixlen-i]
-			CreateShortList(&shortlist, bucket, &count, id)
-		}
-		if prefixlen+i < b {
-			bucket = table.BucketLists[prefixlen+i]
-			CreateShortList(&shortlist, bucket, &count, id)
+	if bucket.length < 3 {
+		for i := 1; (prefixlen-i >= 0 || prefixlen+i < b) && count <= 2; i++ {
+			if prefixlen-i >= 0 {
+				bucket = table.BucketLists[prefixlen-i]
+				CreateShortList(&shortlist, bucket, &count, id)
+			}
+			if prefixlen+i < b {
+				bucket = table.BucketLists[prefixlen+i]
+				CreateShortList(&shortlist, bucket, &count, id)
+			}
 		}
 	}
 	return shortlist
