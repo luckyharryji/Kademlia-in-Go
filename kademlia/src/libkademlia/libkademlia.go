@@ -441,12 +441,11 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			case <-quit:
 				signal = <-quit
 				return
-			default:
+			case <-t.C:
 				for i := 0; i < alpha && pq.Len() > 0; i++ {
 					contact := heap.Pop(pq).(Contact)
 					go k.doFind(contact, key, findValue, respChannel)
 				}
-				<-t.C
 			}
 		}
 	}()
@@ -482,7 +481,7 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
 		}
 	} else {
-		for ret.value == nil && activeNodes.Len() < 20 {
+		for ret.value == nil && activeNodes.Len() < 20 && pq.Len() > 0 {
 			result := <-respChannel
 			if result.success {
 				heap.Push(activeNodes, result.target)

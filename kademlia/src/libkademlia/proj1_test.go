@@ -2,10 +2,11 @@ package libkademlia
 
 import (
 	"bytes"
+	"container/heap"
 	"net"
 	"strconv"
 	"testing"
-	//	"time"
+	"time"
 )
 
 func StringToIpPort(laddr string) (ip net.IP, port uint16, err error) {
@@ -143,6 +144,68 @@ func TestFindNode(t *testing.T) {
 	return
 }
 
+func Connect(list []*Kademlia, kNum int) {
+	for i := 0; i < kNum; i++ {
+		for j := 0; j < kNum; j++ {
+			if j != i {
+				list[i].DoPing(list[j].SelfContact.Host, list[j].SelfContact.Port)
+			}
+		}
+	}
+}
+
+func TestIterativeFindNode(t *testing.T) {
+	// tree structure;
+	// A->B->tree
+	/*
+	         C
+	      /
+	  A-B -- D
+	      \
+	         E
+	*/
+	kNum := 50
+	targetIdx := kNum - 20
+	instance1 := NewKademlia("localhost:7004")
+	instance2 := NewKademlia("localhost:7005")
+	host2, port2, _ := StringToIpPort("localhost:7005")
+	instance1.DoPing(host2, port2)
+	_, err := instance1.FindContact(instance2.NodeID)
+	if err != nil {
+		t.Error("Instance 2's contact not found in Instance 1's contact list")
+		return
+	}
+	var SearchKey ID
+	tree_node := make([]*Kademlia, kNum)
+	for i := 0; i < kNum; i++ {
+		address := "localhost:" + strconv.Itoa(7006+i)
+		tree_node[i] = NewKademlia(address)
+		if i == targetIdx {
+			SearchKey = tree_node[i].NodeID
+		}
+	}
+	Connect(tree_node, kNum)
+	time.Sleep(300 * time.Millisecond)
+	cHeap := PriorityQueue{[]Contact{}, SearchKey}
+	res, err := instance2.DoIterativeFindValue(SearchKey)
+	if err != nil {
+		t.Error("Error doing IterativeFindNode")
+	}
+
+	if res == nil || len(res) == 0 {
+		t.Error("No contacts were found")
+	}
+
+	for value, _ := range res {
+		heap.Push(&cHeap, value)
+	}
+
+	if !cHeap.List[0].NodeID.Equals(SearchKey) {
+		t.Error("Find wrong id")
+	}
+	return
+}
+
 func TestFindValue(t *testing.T) {
 	// tree structure;
 	// A->B->tree
@@ -206,8 +269,8 @@ func TestFindValue(t *testing.T) {
 
 func TestReturnKContact(t *testing.T) {
 	/*
-	Test to see if findValue return exactly k contact even if it sotres more
-	than K nodes information
+		Test to see if findValue return exactly k contact even if it sotres more
+		than K nodes information
 	*/
 
 	// tree structure;
