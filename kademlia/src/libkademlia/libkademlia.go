@@ -411,6 +411,10 @@ func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan ite
 	}
 }
 
+func (k *Kademlia) HandleHeap() {
+	//TODO Jixiangyu's work, resolve data race
+}
+
 func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	ret := iterativeResult{false, k.SelfContact, nil, nil, nil}
 	pq := &PriorityQueue{[]Contact{}, key}
