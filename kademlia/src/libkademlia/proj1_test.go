@@ -164,8 +164,8 @@ func TestIterativeFindNode(t *testing.T) {
 	      \
 	         E
 	*/
-	kNum := 50
-	targetIdx := kNum - 20
+	kNum := 20
+	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:7004")
 	instance2 := NewKademlia("localhost:7005")
 	host2, port2, _ := StringToIpPort("localhost:7005")
@@ -185,7 +185,9 @@ func TestIterativeFindNode(t *testing.T) {
 		}
 	}
 	Connect(tree_node, kNum)
-	time.Sleep(300 * time.Millisecond)
+	//	t.Error("Connect!")
+	//	return
+	time.Sleep(10 * time.Second)
 	cHeap := PriorityQueue{[]Contact{}, SearchKey}
 	res, err := instance2.DoIterativeFindValue(SearchKey)
 	if err != nil {

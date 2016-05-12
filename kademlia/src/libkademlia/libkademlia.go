@@ -390,39 +390,39 @@ type iterativeResult struct {
 	target     Contact
 	activeList []Contact
 	value      []byte
+	err        error
 }
 
 func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan iterativeResult) {
 	if !findValue {
 		contacts, err := k.DoFindNode(&contact, key)
 		if err != nil {
-			resp <- iterativeResult{false, contact, nil, nil}
+			resp <- iterativeResult{false, contact, nil, nil, err}
 		} else {
-			resp <- iterativeResult{true, contact, contacts, nil}
+			resp <- iterativeResult{true, contact, contacts, nil, nil}
 		}
 	} else {
 		value, contacts, err := k.DoFindValue(&contact, key)
 		if err != nil {
-			resp <- iterativeResult{false, contact, nil, nil}
+			resp <- iterativeResult{false, contact, nil, nil, err}
 		} else {
-			resp <- iterativeResult{true, contact, contacts, value}
+			resp <- iterativeResult{true, contact, contacts, value, nil}
 		}
 	}
 }
 
 func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
-	ret := iterativeResult{false, k.SelfContact, nil, nil}
+	ret := iterativeResult{false, k.SelfContact, nil, nil, nil}
 	pq := &PriorityQueue{[]Contact{}, key}
 	activeNodes := &PriorityQueue{[]Contact{}, key}
 	nodeSet := make(map[string]bool)
 	respChannel := make(chan iterativeResult)
 	closetNode := k.SelfContact
-
 	heap.Init(pq)
 	heap.Init(activeNodes)
 
 	clientid := NewRandomID()
-	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 4}
+	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 1}
 	k.registerchannel <- client
 	k.findchannel <- findcommand{clientid, key, 4}
 	result := <-client.findchan
@@ -430,7 +430,13 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	for _, node := range result.Nodes {
 		heap.Push(pq, node)
 	}
-	lastNode := pq.List[0]
+	lastNode := k.SelfContact
+	if pq.Len() > 0 {
+		lastNode = pq.List[0]
+	} else {
+		ret.err = &CommandFailed{"No node in kBucket"}
+		return ret
+	}
 	interval := 300
 	t := time.NewTicker(time.Duration(interval) * time.Millisecond)
 	quit := make(chan bool)
@@ -449,10 +455,13 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			}
 		}
 	}()
+
 	for !lastNode.NodeID.Equals(closetNode.NodeID) && activeNodes.Len() < 20 && ret.value == nil && pq.Len() > 0 {
 		result := <-respChannel
 		if result.success {
-			lastNode = activeNodes.List[0]
+			if activeNodes.Len() > 0 {
+				lastNode = activeNodes.List[0]
+			}
 			heap.Push(activeNodes, result.target)
 			if findValue && result.value != nil {
 				if ret.value == nil {
@@ -501,7 +510,9 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			}
 		}
 	}
-	closetNode = activeNodes.List[0]
+	if activeNodes.Len() > 0 {
+		closetNode = activeNodes.List[0]
+	}
 	if findValue && ret.value != nil {
 		for i := 0; i < activeNodes.Len(); i++ {
 			ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
@@ -525,6 +536,7 @@ func ClosetNode(key ID, c1, c2 Contact) Contact {
 // For project 2!
 func (k *Kademlia) DoIterativeFindNode(id ID) ([]Contact, error) {
 	result := k.Iterative(id, false)
+	return nil, result.err
 	if result.success {
 		return result.activeList, nil
 	}
