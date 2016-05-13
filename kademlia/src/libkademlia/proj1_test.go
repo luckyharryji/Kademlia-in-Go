@@ -171,13 +171,14 @@ func TestIterativeFindNode(t *testing.T) {
 	targetIdx := kNum - 10
 	instance2 := NewKademlia("localhost:7305")
 	host2, port2, _ := StringToIpPort("localhost:7305")
+	instance2.DoPing(host2, port2)
 	var SearchKey ID
 	tree_node := make([]*Kademlia, kNum)
 	//t.Log("Before loop")
 	for i := 0; i < kNum; i++ {
 		address := "localhost:" + strconv.Itoa(7306+i)
 		tree_node[i] = NewKademlia(address)
-		tree_node[i].DoPing(host2, port2)
+		instance2.DoPing(tree_node[i].SelfContact.Host, tree_node[i].SelfContact.Port)
 		if i == targetIdx {
 			SearchKey = tree_node[i].NodeID
 		}
@@ -193,16 +194,22 @@ func TestIterativeFindNode(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-
+	t.Log("SearchKey:" + SearchKey.AsString())
 	if res == nil || len(res) == 0 {
 		t.Error("No contacts were found")
 	}
-
-	for value, _ := range res {
+	find := false
+	for _, value := range res {
+		if value.NodeID.Equals(SearchKey) {
+			find = true
+		}
+		t.Log(value.NodeID.AsString())
 		heap.Push(&cHeap, value)
 	}
-	_, c := cHeap.Peek()
-	if !c.NodeID.Equals(SearchKey) {
+	length := 0
+	length = cHeap.Len()
+	t.Log(strconv.Itoa(length))
+	if !find {
 		t.Error("Find wrong id")
 	}
 	return

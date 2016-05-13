@@ -508,6 +508,7 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 		if result.success {
 			flag := true
 			ok, cnode := activeNodes.Last()
+			heap.Push(activeNodes, result.target)
 			if ok {
 				flag = false
 				for _, node := range result.activeList {
@@ -532,7 +533,6 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			}
 			req := heapRequest{2, make(chan heapResult), NeedToPush}
 			heapReq <- req
-			heap.Push(activeNodes, result.target)
 		}
 	}
 	if findValue && ret.value != nil {
@@ -561,6 +561,9 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			heapReq <- req
 			heap.Push(activeNodes, result.target)
 		}
+	}
+	for activeNodes.Len() > 0 {
+		ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
 	}
 	quit <- true
 	//	close(respChannel)
