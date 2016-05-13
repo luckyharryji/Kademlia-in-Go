@@ -81,6 +81,7 @@ func CreateShortList(contactList *[]Contact, list *BucketList, count *int, id ID
 	}
 }
 
+/*
 func (table *RoutingTable) FindAlpha(id ID) []Contact {
 	prefixlen := id.Xor(table.SelfId).PrefixLen()
 	bucket := table.BucketLists[prefixlen]
@@ -99,7 +100,7 @@ func (table *RoutingTable) FindAlpha(id ID) []Contact {
 	}
 	return shortlist
 }
-
+*/
 func (table *RoutingTable) FindCloset(id ID) []Contact {
 	prefixlen := id.Xor(table.SelfId).PrefixLen()
 	bucket := table.BucketLists[prefixlen]

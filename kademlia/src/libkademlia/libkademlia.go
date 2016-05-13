@@ -179,12 +179,13 @@ func (k *Kademlia) HandleTable() {
 				node := k.table.FindContact(cmd.key)
 				Hashforcontact[cmd.clientid] <- contactresult{node}
 				delete(Hashforcontact, cmd.clientid)
-			case 4:
-				//find alpha contact
-				nodes := k.table.FindAlpha(cmd.key)
-				result := findresult{nodes, nil, nil}
-				Hashforfind[cmd.clientid] <- result
-				delete(Hashforfind, cmd.clientid)
+				/*	case 4:
+					//find alpha contact
+					nodes := k.table.FindAlpha(cmd.key)
+					result := findresult{nodes, nil, nil}
+					Hashforfind[cmd.clientid] <- result
+					delete(Hashforfind, cmd.clientid)
+				*/
 			}
 		}
 	}
@@ -477,7 +478,7 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	clientid := NewRandomID()
 	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 1}
 	k.registerchannel <- client
-	k.findchannel <- findcommand{clientid, key, 4}
+	k.findchannel <- findcommand{clientid, key, 1}
 	result := <-client.findchan
 
 	heapReq <- heapRequest{2, make(chan heapResult), result.Nodes}
