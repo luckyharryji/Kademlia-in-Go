@@ -412,9 +412,9 @@ func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan ite
 }
 
 type heapRequest struct {
-	cmd      int
-	channel  chan heapResult
-	contacts []Contact
+	cmd     int
+	channel chan heapResult
+	contact []Contact
 }
 
 type heapResult struct {
@@ -432,9 +432,7 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 		case 1:
 			request.channel <- heapResult{pq.Len(), nil}
 		case 2:
-			for node, _ := range Req.contacts {
-				heap.Push(pq, node)
-			}
+			heap.Push(pq, request.contact)
 		case 3:
 			con := []Contact{}
 			length := pq.Len()
@@ -442,13 +440,15 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 				con = append(con, heap.Pop(pq).(Contact))
 			}
 			request.channel <- heapResult{length, con}
-		case 4:
-			ok, ClosetNode := pq.Peek()
-			if ok {
-				request.channel <- heapResult{pq.Len(), []Contact{ClosetNode}}
-			} else {
-				request.channel <- heapResult{pq.Len(), nil}
-			}
+			/*
+				case 4:
+					ok, ClosetNode := pq.Peek()
+					if ok {
+						request.channel <- heapResult{pq.Len(), []Contact{ClosetNode}}
+					} else {
+						request.channel <- heapResult{pq.Len(), nil}
+					}
+			*/
 		}
 	}
 }
@@ -459,8 +459,6 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	nodeSet := make(map[string]bool)
 	respChannel := make(chan iterativeResult)
 	heapReq := make(chan heapRequest)
-	ContactTran := make(chan Contact)
-	closetNode := k.SelfContact
 
 	heap.Init(activeNodes)
 
@@ -474,14 +472,11 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 
 	heapReq <- heapRequest{2, make(chan heapResult), result.Nodes}
 
-	lastNode := k.SelfContact
+	newReq := heapRequest{1, make(chan heapResult), nil}
+	heapReq <- newReq
+	heap_result := <-newReq.channel
 
-	headReq <- heapRequest{1, make(chan heapResult), nil}
-	heap_result := <-heapRep
-
-	if heap_result.length > 0 {
-		lastNode = heap_result.ClosetNode
-	} else {
+	if heap_result.length <= 0 {
 		ret.err = &CommandFailed{"No node in kBucket"}
 		return ret
 	}
@@ -506,31 +501,65 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			}
 		}
 	}()
-	for {
+	//logic for iteration
+	for activeNodes.Len() < 20 {
 		result := <-respChannel
 		if result.success {
-			flag := false
-			req := heapRequest{4, make(chan heapResult), nil}
-			temp := <-req.channel
-
-			if temp.contacts != nil {
-				cnode := temp.contacts[0]
-				for node := range result.activeList {
-					if Close(key, node, cnode) {
+			flag := true
+			ok, cnode := activeNodes.Last()
+			if ok {
+				flag = false
+				for _, node := range result.activeList {
+					if Closer(key, node, cnode) {
 						flag = true
 					}
+				}
+			}
+			if findValue && result.value != nil {
+				ret.value = result.value
+				break
+			}
+			NeedToPush := []Contact{}
+			for _, node := range result.activeList {
+				if ok, _ := nodeSet[node.NodeID.AsString()]; !ok {
+					NeedToPush = append(NeedToPush, node)
+					nodeSet[node.NodeID.AsString()] = true
 				}
 			}
 			if !flag {
 				break
 			}
-			req = heapRequest{2, make(chan heapResult), result.activeList}
+			req := heapRequest{2, make(chan heapResult), NeedToPush}
 			heapReq <- req
 			heap.Push(activeNodes, result.target)
 		}
 	}
+	if findValue && ret.value != nil {
+		for activeNodes.Len() > 0 {
+			ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
+		}
+		return ret
+	}
 	//TODO logic for iteration
-
+	for activeNodes.Len() < 20 {
+		result := <-respChannel
+		if result.success {
+			if findValue && result.value != nil {
+				ret.value = result.value
+				break
+			}
+			NeedToPush := []Contact{}
+			for _, node := range result.activeList {
+				if ok, _ := nodeSet[node.NodeID.AsString()]; !ok {
+					NeedToPush = append(NeedToPush, node)
+					nodeSet[node.NodeID.AsString()] = true
+				}
+			}
+			req := heapRequest{2, make(chan heapResult), NeedToPush}
+			heapReq <- req
+			heap.Push(activeNodes, result.target)
+		}
+	}
 	quit <- true
 	close(respChannel)
 	ret.success = true
