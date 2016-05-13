@@ -3,8 +3,9 @@ package libkademlia
 import ()
 
 type PriorityQueue struct {
-	List   []Contact
-	NodeID ID
+	SelfContact Contact
+	List        []Contact
+	NodeID      ID
 }
 
 func (pq PriorityQueue) Len() int {
@@ -37,12 +38,18 @@ func (pq *PriorityQueue) Push(x interface{}) {
 	pq.List = append(pq.List, x.(Contact))
 }
 
-func (pq *PriorityQueue) Peek() Contact {
-	return pq.List[0]
+func (pq *PriorityQueue) Peek() (bool, Contact) {
+	if pq.Len() <= 0 {
+		return false, pq.SelfContact
+	}
+	return true, pq.List[0]
 }
 
-func (pq *PriorityQueue) Last() Contact {
+func (pq *PriorityQueue) Last() (bool, Contact) {
 	old := pq.List
 	n := len(old)
-	return pq.List[n-1]
+	if pq.Len() <= 0 {
+		return false, pq.SelfContact
+	}
+	return true, pq.List[n-1]
 }

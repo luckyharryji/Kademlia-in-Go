@@ -413,24 +413,24 @@ func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan ite
 
 type heapRequest struct {
 	cmd      int
+	channel  chan heapResult
 	contacts []Contact
 }
 
 type heapResult struct {
-	length     int
-	contacts   []Contact
-	ClosetNode Contact
+	length   int
+	contacts []Contact
 }
 
-func HandleHeap(key ID, Req chan heapRequest, Rep chan heapResult) {
-	pq := &PriorityQueue{[]Contact{}, key}
+func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
+	pq := &PriorityQueue{k.SelfContact, []Contact{}, key}
 	heap.Init(pq)
 	for {
 		request := <-Req
 		cmd := request.cmd
 		switch cmd {
 		case 1:
-			Rep <- heapResult{pq.Len(), nil, pq.List[0]}
+			request.channel <- heapResult{pq.Len(), nil}
 		case 2:
 			for node, _ := range Req.contacts {
 				heap.Push(pq, node)
@@ -441,27 +441,30 @@ func HandleHeap(key ID, Req chan heapRequest, Rep chan heapResult) {
 			for i := 0; i < alpha && pq.Len() > 0; i++ {
 				con = append(con, heap.Pop(pq).(Contact))
 			}
-			Rep <- heapResult{length, con, pq.List[0]}
+			request.channel <- heapResult{length, con}
 		case 4:
-			ClosetNode := pq.Peek()
-			Req <- heapResult{pq.Len(), nil, ClosetNode}
+			ok, ClosetNode := pq.Peek()
+			if ok {
+				request.channel <- heapResult{pq.Len(), []Contact{ClosetNode}}
+			} else {
+				request.channel <- heapResult{pq.Len(), nil}
+			}
 		}
 	}
 }
 
 func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	ret := iterativeResult{false, k.SelfContact, nil, nil, nil}
-	activeNodes := &PriorityQueue{[]Contact{}, key}
+	activeNodes := &PriorityQueue{k.SelfContact, []Contact{}, key}
 	nodeSet := make(map[string]bool)
 	respChannel := make(chan iterativeResult)
 	heapReq := make(chan heapRequest)
-	heapRep := make(chan heapResult)
 	ContactTran := make(chan Contact)
 	closetNode := k.SelfContact
 
 	heap.Init(activeNodes)
 
-	go HandleHeap(key, heapReq, heapRep)
+	go k.HandleHeap(key, heapReq)
 
 	clientid := NewRandomID()
 	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 1}
@@ -469,11 +472,11 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	k.findchannel <- findcommand{clientid, key, 4}
 	result := <-client.findchan
 
-	heapReq <- heapRequest{2, result.Nodes}
+	heapReq <- heapRequest{2, make(chan heapResult), result.Nodes}
 
 	lastNode := k.SelfContact
 
-	headReq <- heapRequest{1, nil}
+	headReq <- heapRequest{1, make(chan heapResult), nil}
 	heap_result := <-heapRep
 
 	if heap_result.length > 0 {
@@ -493,8 +496,9 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 				signal = <-quit
 				return
 			case <-t.C:
-				heapReq <- heapRequest{3, nil}
-				PopResult := <-heapRep
+				req := heapRequest{3, make(chan heapResult), nil}
+				heapReq <- req
+				PopResult := <-req.channel
 				for i := 0; i < alpha && i < PopResult.length; i++ {
 					contact := PopResult.contacts[i]
 					go k.doFind(contact, key, findValue, respChannel)
@@ -502,69 +506,31 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			}
 		}
 	}()
-
-	for !lastNode.NodeID.Equals(closetNode.NodeID) && activeNodes.Len() < 20 && ret.value == nil && pq.Len() > 0 {
+	for {
 		result := <-respChannel
 		if result.success {
-			if activeNodes.Len() > 0 {
-				lastNode = activeNodes.List[0]
-			}
-			heap.Push(activeNodes, result.target)
-			if findValue && result.value != nil {
-				if ret.value == nil {
-					ret.value = result.value
-					ret.target = result.target
-				}
-				if _, ok := nodeSet[result.target.NodeID.AsString()]; !ok {
-					nodeSet[result.target.NodeID.AsString()] = true
-				}
-			} else if result.activeList != nil {
-				for _, value := range result.activeList {
-					if _, ok := nodeSet[value.NodeID.AsString()]; !ok {
-						nodeSet[value.NodeID.AsString()] = true
-						heapReq <- heapRequest{2, []Contact{value}}
-					}
-				}
-			}
-		}
-		if activeNodes.Len() > 0 {
-			closetNode = activeNodes.List[0]
-		}
-	}
+			flag := false
+			req := heapRequest{4, make(chan heapResult), nil}
+			temp := <-req.channel
 
-	if findValue && ret.value != nil {
-		for i := 0; i < activeNodes.Len(); i++ {
-			ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
-		}
-	} else {
-		for ret.value == nil && activeNodes.Len() < 20 && pq.Len() > 0 {
-			result := <-respChannel
-			if result.success {
-				heap.Push(activeNodes, result.target)
-				if findValue && result.value != nil {
-					ret.value = result.value
-					ret.target = result.target
-				}
-				for _, value := range result.activeList {
-					if _, ok := nodeSet[value.NodeID.AsString()]; !ok {
-						nodeSet[value.NodeID.AsString()] = true
-						heap.Push(pq, value)
+			if temp.contacts != nil {
+				cnode := temp.contacts[0]
+				for node := range result.activeList {
+					if Close(key, node, cnode) {
+						flag = true
 					}
 				}
 			}
-			if _, ok := nodeSet[result.target.NodeID.AsString()]; !ok {
-				nodeSet[result.target.NodeID.AsString()] = true
+			if !flag {
+				break
 			}
+			req = heapRequest{2, make(chan heapResult), result.activeList}
+			heapReq <- req
+			heap.Push(activeNodes, result.target)
 		}
 	}
-	if activeNodes.Len() > 0 {
-		closetNode = activeNodes.List[0]
-	}
-	if findValue && ret.value != nil {
-		for i := 0; i < activeNodes.Len(); i++ {
-			ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
-		}
-	}
+	//TODO logic for iteration
+
 	quit <- true
 	close(respChannel)
 	ret.success = true
@@ -578,6 +544,12 @@ func ClosetNode(key ID, c1, c2 Contact) Contact {
 		return c1
 	}
 	return c2
+}
+
+func Closer(key ID, c1, c2 Contact) bool {
+	dist1 := key.Xor(c1.NodeID)
+	dist2 := key.Xor(c2.NodeID)
+	return dist1.Less(dist2)
 }
 
 // For project 2!
