@@ -416,7 +416,7 @@ type heapRequest struct {
 	contacts []Contact
 }
 
-type headResult struct {
+type heapResult struct {
 	length     int
 	contacts   []Contact
 	ClosetNode Contact
@@ -425,7 +425,28 @@ type headResult struct {
 func HandleHeap(key ID, Req chan heapRequest, Rep chan heapResult) {
 	pq := &PriorityQueue{[]Contact{}, key}
 	heap.Init(pq)
-
+	for {
+		request := <-Req
+		cmd := request.cmd
+		switch cmd {
+		case 1:
+			Rep <- heapResult{pq.Len(), nil, pq.List[0]}
+		case 2:
+			for node, _ := range Req.contacts {
+				heap.Push(pq, node)
+			}
+		case 3:
+			con := []Contact{}
+			length := pq.Len()
+			for i := 0; i < alpha && pq.Len() > 0; i++ {
+				con = append(con, heap.Pop(pq).(Contact))
+			}
+			Rep <- heapResult{length, con, pq.List[0]}
+		case 4:
+			ClosetNode := pq.Peek()
+			Req <- heapResult{pq.Len(), nil, ClosetNode}
+		}
+	}
 }
 
 func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {

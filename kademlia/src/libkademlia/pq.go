@@ -36,3 +36,13 @@ func (pq *PriorityQueue) Pop() interface{} {
 func (pq *PriorityQueue) Push(x interface{}) {
 	pq.List = append(pq.List, x.(Contact))
 }
+
+func (pq *PriorityQueue) Peek() Contact {
+	return pq.List[0]
+}
+
+func (pq *PriorityQueue) Last() Contact {
+	old := pq.List
+	n := len(old)
+	return pq.List[n-1]
+}
