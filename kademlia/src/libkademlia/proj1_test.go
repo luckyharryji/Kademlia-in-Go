@@ -167,7 +167,7 @@ func TestIterativeFindNode(t *testing.T) {
 	      \
 	         E
 	*/
-	kNum := 20
+	kNum := 30
 	targetIdx := kNum - 10
 	instance2 := NewKademlia("localhost:7305")
 	host2, port2, _ := StringToIpPort("localhost:7305")
@@ -185,12 +185,12 @@ func TestIterativeFindNode(t *testing.T) {
 		//t.Log("In loop")
 	}
 	//t.Log("Wait for connect")
-	//	Connect(t, tree_node, kNum)
+	Connect(t, tree_node, kNum)
 	//t.Log("Connect!")
 	time.Sleep(10 * time.Second)
 	cHeap := PriorityQueue{instance2.SelfContact, []Contact{}, SearchKey}
 	//t.Log("Wait for iterative")
-	res, err := instance2.DoIterativeFindNode(SearchKey)
+	res, err := instance2.DoIterativeFindNode(instance2.SelfContact.NodeID)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -200,11 +200,13 @@ func TestIterativeFindNode(t *testing.T) {
 	}
 	find := false
 	for _, value := range res {
-		if value.NodeID.Equals(SearchKey) {
-			find = true
-		}
 		t.Log(value.NodeID.AsString())
 		heap.Push(&cHeap, value)
+	}
+	_, c := cHeap.Peek()
+	t.Log("Closet Node:" + c.NodeID.AsString())
+	if c.NodeID.Equals(SearchKey) {
+		find = true
 	}
 	length := 0
 	length = cHeap.Len()
@@ -215,6 +217,7 @@ func TestIterativeFindNode(t *testing.T) {
 	return
 }
 
+/*
 func TestFindValue(t *testing.T) {
 	// tree structure;
 	// A->B->tree
@@ -224,7 +227,7 @@ func TestFindValue(t *testing.T) {
 	  A-B -- D
 	      \
 	         E
-	*/
+
 	instance1 := NewKademlia("localhost:7926")
 	instance2 := NewKademlia("localhost:7927")
 	host2, port2, _ := StringToIpPort("localhost:7927")
@@ -280,17 +283,17 @@ func TestReturnKContact(t *testing.T) {
 	/*
 		Test to see if findValue return exactly k contact even if it sotres more
 		than K nodes information
-	*/
+*/
 
-	// tree structure;
-	// A->B->tree
-	/*
+// tree structure;
+// A->B->tree
+/*
 	         C
 	      /
 	  A-B -- D
 	      \
 	         E
-	*/
+
 	instance1 := NewKademlia("localhost:8926")
 	instance2 := NewKademlia("localhost:8927")
 	host2, port2, _ := StringToIpPort("localhost:8927")
@@ -330,3 +333,4 @@ func TestReturnKContact(t *testing.T) {
 	}
 	return
 }
+*/

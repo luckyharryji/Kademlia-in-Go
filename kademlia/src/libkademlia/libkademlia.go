@@ -234,6 +234,7 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	address := host.String() + ":" + strconv.Itoa(int(port))
 	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
 	client, err := rpc.DialHTTPPath("tcp", address, path)
+	defer client.Close()
 	if err != nil {
 		return nil, &CommandFailed{"HTTP Connect Error"}
 	}
@@ -272,6 +273,7 @@ func (k *Kademlia) DoStore(contact *Contact, key ID, value []byte) error {
 	address := host + ":" + port
 	path := rpc.DefaultRPCPath + port
 	client, err := rpc.DialHTTPPath("tcp", address, path)
+	defer client.Close()
 	if err != nil {
 		return &CommandFailed{"HTTP Connect Error"}
 	}
@@ -303,6 +305,7 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 	address := host + ":" + port
 	path := rpc.DefaultRPCPath + port
 	client, err := rpc.DialHTTPPath("tcp", address, path)
+	defer client.Close()
 	if err != nil {
 		return nil, &CommandFailed{"HTTP Connect Error"}
 	}
@@ -342,7 +345,7 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 	address := host + ":" + port
 	path := rpc.DefaultRPCPath + port
 	client, err := rpc.DialHTTPPath("tcp", address, path)
-
+	defer client.Close()
 	if err != nil {
 		return nil, nil, &CommandFailed{"HTTP Connect Error"}
 	}
@@ -425,6 +428,7 @@ type heapResult struct {
 func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 	pq := &PriorityQueue{k.SelfContact, []Contact{}, key}
 	heap.Init(pq)
+	nodeSet := make(map[string]bool)
 	for {
 		request := <-Req
 		cmd := request.cmd
@@ -433,7 +437,10 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 			request.channel <- heapResult{pq.Len(), nil}
 		case 2:
 			for _, node := range request.contacts {
-				heap.Push(pq, node)
+				if _, ok := nodeSet[node.NodeID.AsString()]; !ok {
+					heap.Push(pq, node)
+					nodeSet[node.NodeID.AsString()] = true
+				}
 			}
 		case 3:
 			con := []Contact{}
@@ -458,7 +465,7 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	ret := iterativeResult{false, k.SelfContact, nil, nil, nil}
 	activeNodes := &PriorityQueue{k.SelfContact, []Contact{}, key}
-	nodeSet := make(map[string]bool)
+	//nodeSet := make(map[string]bool)
 	respChannel := make(chan iterativeResult)
 	heapReq := make(chan heapRequest)
 
@@ -521,17 +528,17 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 				ret.value = result.value
 				break
 			}
-			NeedToPush := []Contact{}
-			for _, node := range result.activeList {
-				if ok, _ := nodeSet[node.NodeID.AsString()]; !ok {
-					NeedToPush = append(NeedToPush, node)
-					nodeSet[node.NodeID.AsString()] = true
-				}
-			}
+			/*	NeedToPush := []Contact{}
+				for _, node := range result.activeList {
+					if ok, _ := nodeSet[node.NodeID.AsString()]; !ok {
+						NeedToPush = append(NeedToPush, node)
+						nodeSet[node.NodeID.AsString()] = true
+					}
+				}*/
 			if !flag {
 				break
 			}
-			req := heapRequest{2, make(chan heapResult), NeedToPush}
+			req := heapRequest{2, make(chan heapResult), result.activeList}
 			heapReq <- req
 		}
 	}
@@ -549,15 +556,15 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			if findValue && result.value != nil {
 				ret.value = result.value
 				break
-			}
-			NeedToPush := []Contact{}
-			for _, node := range result.activeList {
-				if ok, _ := nodeSet[node.NodeID.AsString()]; !ok {
-					NeedToPush = append(NeedToPush, node)
-					nodeSet[node.NodeID.AsString()] = true
-				}
-			}
-			req := heapRequest{2, make(chan heapResult), NeedToPush}
+			} /*
+				NeedToPush := []Contact{}
+				for _, node := range result.activeList {
+					if ok, _ := nodeSet[node.NodeID.AsString()]; !ok {
+						NeedToPush = append(NeedToPush, node)
+						nodeSet[node.NodeID.AsString()] = true
+					}
+				}*/
+			req := heapRequest{2, make(chan heapResult), result.activeList}
 			heapReq <- req
 			heap.Push(activeNodes, result.target)
 		}
