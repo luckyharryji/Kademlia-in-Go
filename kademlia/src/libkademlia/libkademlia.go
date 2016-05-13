@@ -214,6 +214,7 @@ func (k *Kademlia) FindContact(nodeId ID) (*Contact, error) {
 	k.registerchannel <- client                       //register through channel
 	k.findchannel <- findcommand{clientid, nodeId, 3} //send query through channel
 	result := <-client.contactchan                    //get result from channel
+	defer close(client.contactchan)
 	if result.node != nil {
 		return result.node, nil
 	}

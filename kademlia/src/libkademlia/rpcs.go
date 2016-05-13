@@ -88,6 +88,7 @@ func (k *KademliaRPC) FindNode(req FindNodeRequest, res *FindNodeResult) error {
 	k.kademlia.registerchannel <- client
 	k.kademlia.findchannel <- findcommand{clientid, req.NodeID, 1}
 	result := <-client.findchan
+	defer close(client.findchan)
 	res.Nodes = result.Nodes
 	return nil
 }
@@ -119,6 +120,7 @@ func (k *KademliaRPC) FindValue(req FindValueRequest, res *FindValueResult) erro
 	k.kademlia.registerchannel <- client
 	k.kademlia.findchannel <- findcommand{clientid, req.Key, 2}
 	result := <-client.findchan
+	defer close(client.findchan)
 	res.Value = result.Value
 	res.Nodes = result.Nodes
 	res.Err = nil
