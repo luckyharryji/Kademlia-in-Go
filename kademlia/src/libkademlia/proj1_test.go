@@ -144,12 +144,15 @@ func TestFindNode(t *testing.T) {
 	return
 }
 
-func Connect(list []*Kademlia, kNum int) {
+func Connect(t *testing.T, list []*Kademlia, kNum int) {
+	count := 0
 	for i := 0; i < kNum; i++ {
 		for j := 0; j < kNum; j++ {
 			if j != i {
 				list[i].DoPing(list[j].SelfContact.Host, list[j].SelfContact.Port)
 			}
+			count++
+			t.Log(count)
 		}
 	}
 }
@@ -166,32 +169,29 @@ func TestIterativeFindNode(t *testing.T) {
 	*/
 	kNum := 20
 	targetIdx := kNum - 10
-	instance1 := NewKademlia("localhost:7004")
-	instance2 := NewKademlia("localhost:7005")
-	host2, port2, _ := StringToIpPort("localhost:7005")
-	instance1.DoPing(host2, port2)
-	_, err := instance1.FindContact(instance2.NodeID)
-	if err != nil {
-		t.Error("Instance 2's contact not found in Instance 1's contact list")
-		return
-	}
+	instance2 := NewKademlia("localhost:7305")
+	host2, port2, _ := StringToIpPort("localhost:7305")
 	var SearchKey ID
 	tree_node := make([]*Kademlia, kNum)
+	//t.Log("Before loop")
 	for i := 0; i < kNum; i++ {
-		address := "localhost:" + strconv.Itoa(7006+i)
+		address := "localhost:" + strconv.Itoa(7306+i)
 		tree_node[i] = NewKademlia(address)
+		tree_node[i].DoPing(host2, port2)
 		if i == targetIdx {
 			SearchKey = tree_node[i].NodeID
 		}
+		//t.Log("In loop")
 	}
-	Connect(tree_node, kNum)
-	//	t.Error("Connect!")
-	//	return
+	//t.Log("Wait for connect")
+	//	Connect(t, tree_node, kNum)
+	//t.Log("Connect!")
 	time.Sleep(10 * time.Second)
-	cHeap := PriorityQueue{[]Contact{}, SearchKey}
-	res, err := instance2.DoIterativeFindValue(SearchKey)
+	cHeap := PriorityQueue{instance2.SelfContact, []Contact{}, SearchKey}
+	//t.Log("Wait for iterative")
+	res, err := instance2.DoIterativeFindNode(SearchKey)
 	if err != nil {
-		t.Error("Error doing IterativeFindNode")
+		t.Error(err.Error())
 	}
 
 	if res == nil || len(res) == 0 {
@@ -201,8 +201,8 @@ func TestIterativeFindNode(t *testing.T) {
 	for value, _ := range res {
 		heap.Push(&cHeap, value)
 	}
-
-	if !cHeap.List[0].NodeID.Equals(SearchKey) {
+	_, c := cHeap.Peek()
+	if !c.NodeID.Equals(SearchKey) {
 		t.Error("Find wrong id")
 	}
 	return

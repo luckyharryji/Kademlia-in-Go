@@ -1,1 +1,1 @@
-go test -race libkademlia
+go test -v -race libkademlia

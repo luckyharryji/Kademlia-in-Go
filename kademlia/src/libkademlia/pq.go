@@ -27,15 +27,15 @@ func (pq PriorityQueue) Swap(i, j int) {
 }
 
 func (pq *PriorityQueue) Pop() interface{} {
-	old := pq.List
+	old := (*pq).List
 	n := len(old)
 	x := old[n-1]
-	pq.List = old[0 : n-1]
+	(*pq).List = old[0 : n-1]
 	return x
 }
 
 func (pq *PriorityQueue) Push(x interface{}) {
-	pq.List = append(pq.List, x.(Contact))
+	(*pq).List = append((*pq).List, x.(Contact))
 }
 
 func (pq *PriorityQueue) Peek() (bool, Contact) {

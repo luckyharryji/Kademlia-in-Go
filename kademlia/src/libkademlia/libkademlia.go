@@ -412,9 +412,9 @@ func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan ite
 }
 
 type heapRequest struct {
-	cmd     int
-	channel chan heapResult
-	contact []Contact
+	cmd      int
+	channel  chan heapResult
+	contacts []Contact
 }
 
 type heapResult struct {
@@ -432,7 +432,9 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 		case 1:
 			request.channel <- heapResult{pq.Len(), nil}
 		case 2:
-			heap.Push(pq, request.contact)
+			for _, node := range request.contacts {
+				heap.Push(pq, node)
+			}
 		case 3:
 			con := []Contact{}
 			length := pq.Len()
@@ -489,7 +491,6 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			select {
 			case <-quit:
 				signal = <-quit
-				return
 			case <-t.C:
 				req := heapRequest{3, make(chan heapResult), nil}
 				heapReq <- req
@@ -538,6 +539,7 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 		for activeNodes.Len() > 0 {
 			ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
 		}
+		ret.success = true
 		return ret
 	}
 	//TODO logic for iteration
@@ -561,7 +563,7 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 		}
 	}
 	quit <- true
-	close(respChannel)
+	//	close(respChannel)
 	ret.success = true
 	return ret
 }
@@ -584,11 +586,10 @@ func Closer(key ID, c1, c2 Contact) bool {
 // For project 2!
 func (k *Kademlia) DoIterativeFindNode(id ID) ([]Contact, error) {
 	result := k.Iterative(id, false)
-	return nil, result.err
 	if result.success {
 		return result.activeList, nil
 	}
-	return nil, &CommandFailed{"Fail Iterative"}
+	return nil, result.err
 }
 func (k *Kademlia) DoIterativeStore(key ID, value []byte) ([]Contact, error) {
 	result := k.Iterative(key, false)
@@ -598,7 +599,7 @@ func (k *Kademlia) DoIterativeStore(key ID, value []byte) ([]Contact, error) {
 		}
 		return result.activeList, nil
 	}
-	return nil, &CommandFailed{"Fail Iterative"}
+	return nil, result.err
 }
 func (k *Kademlia) DoIterativeFindValue(key ID) (value []byte, err error) {
 	result := k.Iterative(key, true)
@@ -609,7 +610,7 @@ func (k *Kademlia) DoIterativeFindValue(key ID) (value []byte, err error) {
 			return nil, &CommandFailed{"Cannot find value"}
 		}
 	}
-	return nil, &CommandFailed{"Fail Iterative"}
+	return nil, result.err
 }
 
 // For project 3!
