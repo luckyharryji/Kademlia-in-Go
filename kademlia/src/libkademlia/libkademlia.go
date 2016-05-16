@@ -502,22 +502,9 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 		ret.err = &CommandFailed{"No node in kBucket"}
 		return ret
 	}
-	/*
-		go func() {
-			for {
-				req := heapRequest{3, make(chan heapResult), nil}
-				heapReq <- req
-				PopResult := <-req.channel
-				for _, node := range PopResult.contacts {
-					go k.doFind(node, key, findValue, respChannel)
-				}
-				time.Sleep(300 * time.Millisecond)
-			}
-		}()
-	*/
 	//logic for iteration
-	breakflag := true
-	for activeNodes.Len() < 20 && breakflag {
+outerloop:
+	for activeNodes.Len() < 20 {
 		count := 0
 		req := heapRequest{3, 3, make(chan heapResult), nil}
 		heapReq <- req
@@ -526,7 +513,8 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			go k.doFind(node, key, findValue, respChannel)
 			count++
 		}
-		for breakflag {
+	innerloop:
+		for {
 			select {
 			case result := <-respChannel:
 				count--
@@ -548,13 +536,11 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 
 					if findValue && result.value != nil {
 						ret.value = result.value
-						breakflag = false
-						break
+						break outerloop
 					}
 					fmt.Println(activeNodes.Len(), flag)
 					if !flag {
-						breakflag = false
-						break
+						break outerloop
 					}
 					fmt.Println(activeNodes.Len(), "Before channel")
 					req := heapRequest{2, 0, make(chan heapResult), result.activeList}
@@ -564,13 +550,14 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 				}
 
 				if count == 0 {
-					break
+					break innerloop
 				}
 			case <-time.After(300 * time.Millisecond):
-				break
+				fmt.Println("Time out")
+				break innerloop
 			}
 		}
-		fmt.Println("End of For loop", activeNodes.Len(), breakflag)
+		fmt.Println("End of For loop", activeNodes.Len())
 	}
 
 	fmt.Println("after loop", activeNodes.Len())
