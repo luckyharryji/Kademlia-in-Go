@@ -1,2 +1,2 @@
-install kademlia
+go install kademlia
 go test -race -v libkademlia
