@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"testing"
 	"time"
+	"fmt"
 )
 
 func StringToIpPort(laddr string) (ip net.IP, port uint16, err error) {
@@ -167,7 +168,7 @@ func TestIterativeFindNode(t *testing.T) {
 	      \
 	         E
 	*/
-	kNum := 30
+	kNum := 36
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:7304")
 	instance2 := NewKademlia("localhost:7305")
@@ -187,6 +188,7 @@ func TestIterativeFindNode(t *testing.T) {
 	}
 	SearchKey := tree_node[targetIdx].SelfContact.NodeID
 	Connect(t, tree_node, kNum)
+	fmt.Println("get here")
 	time.Sleep(100 * time.Millisecond)
 	res, err := tree_node[0].DoIterativeFindNode(SearchKey)
 	if err != nil {
