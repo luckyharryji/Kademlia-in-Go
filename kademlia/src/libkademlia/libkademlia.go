@@ -526,7 +526,7 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			go k.doFind(node, key, findValue, respChannel)
 			count++
 		}
-		for {
+		for breakflag {
 			select {
 			case result := <-respChannel:
 				count--

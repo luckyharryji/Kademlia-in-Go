@@ -224,7 +224,7 @@ func TestIterativeStore(t *testing.T) {
 	      \
 	         E
 	*/
-	kNum := 40
+	kNum := 30
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:10004")
 	instance2 := NewKademlia("localhost:10005")
@@ -283,7 +283,7 @@ func TestIterativeFindValue(t *testing.T) {
 	      \
 	         E
 	*/
-	kNum := 40
+	kNum := 30
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:20004")
 	instance2 := NewKademlia("localhost:20005")
