@@ -255,8 +255,8 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	case <-time.After(10 * time.Second):
 		return nil, &CommandFailed{"Time Out"}
 	}
-	//	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
-	//	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
+	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
+	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
 	if !ping.MsgID.Equals(pong.MsgID) {
 		return nil, &CommandFailed{"Wrong MsgID"}
 	}
@@ -428,16 +428,16 @@ type heapResult struct {
 
 func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 	/*
-	Handle The Heap List created for return shortlist:
-	Deal with individual Goroutine
+		Handle The Heap List created for return shortlist:
+		Deal with individual Goroutine
 
-	Input:
-		@key: the object nodeID which tends to find
-		@Req(chan): record the channel used for update heap
+		Input:
+			@key: the object nodeID which tends to find
+			@Req(chan): record the channel used for update heap
 	*/
 	pq := &PriorityQueue{k.SelfContact, []Contact{}, key}
 	heap.Init(pq)
-	nodeSet := make(map[string] bool)
+	nodeSet := make(map[string]bool)
 	for {
 		request := <-Req
 		cmd := request.cmd
@@ -452,7 +452,7 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 					// ignore when self ID is returned
 					if !node.NodeID.Equals(k.NodeID) {
 						heap.Push(pq, node)
-						log.Printf("Push into Heqp :%s\n", node.NodeID.AsString())
+						log.Printf("Push into Heap :%s\n", node.NodeID.AsString())
 						nodeSet[node.NodeID.AsString()] = true
 					}
 				}
@@ -467,15 +467,6 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 				con = append(con, heap.Pop(pq).(Contact))
 			}
 			request.channel <- heapResult{length, con}
-			/*
-				case 4:
-					ok, ClosetNode := pq.Peek()
-					if ok {
-						request.channel <- heapResult{pq.Len(), []Contact{ClosetNode}}
-					} else {
-						request.channel <- heapResult{pq.Len(), nil}
-					}
-			*/
 		}
 	}
 }
@@ -581,24 +572,14 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 				ret.value = result.value
 				break
 			}
-			/*
-					NeedToPush := []Contact{}
-					for _, node := range result.activeList {
-						if ok, _ := nodeSet[node.NodeID.AsString()]; !ok {
-							NeedToPush = append(NeedToPush, node)
-							nodeSet[node.NodeID.AsString()] = true
-						}
-					}
-				req := heapRequest{2, make(chan heapResult), result.activeList}
-				heapReq <- req
-			*/
 			heap.Push(activeNodes, result.target)
 		}
 		requestForLengthReq := heapRequest{1, make(chan heapResult), nil}
 		heapReq <- requestForLengthReq
-		length_result := <- requestForLengthReq.channel
+		length_result := <-requestForLengthReq.channel
 
 		if length_result.length <= 0 {
+			fmt.Println("Break")
 			break
 		}
 	}
@@ -638,7 +619,9 @@ func (k *Kademlia) DoIterativeStore(key ID, value []byte) ([]Contact, error) {
 	if result.success {
 		for _, node := range result.activeList {
 			k.DoStore(&node, key, value)
+			fmt.Println("Store NodeID:" + node.NodeID.AsString())
 		}
+		fmt.Println("Stored and return contacts")
 		return result.activeList, nil
 	}
 	return nil, result.err
