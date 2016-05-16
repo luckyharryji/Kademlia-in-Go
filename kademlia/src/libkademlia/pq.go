@@ -22,8 +22,8 @@ func (pq PriorityQueue) Less(i, j int) bool {
 	return contactLess(&pq.List[i], &pq.List[j], pq.NodeID)
 }
 
-func (pq PriorityQueue) Swap(i, j int) {
-	pq.List[i], pq.List[j] = pq.List[j], pq.List[i]
+func (pq PriorityQueue) Swap(ii, jj int) {
+	pq.List[ii], pq.List[jj] = pq.List[jj], pq.List[ii]
 }
 
 func (pq *PriorityQueue) Pop() interface{} {
@@ -38,14 +38,14 @@ func (pq *PriorityQueue) Push(x interface{}) {
 	pq.List = append(pq.List, x.(Contact))
 }
 
-func (pq *PriorityQueue) Peek() (bool, Contact) {
+func (pq *PriorityQueue) Last() (bool, Contact) {
 	if pq.Len() <= 0 {
 		return false, pq.SelfContact
 	}
 	return true, pq.List[0]
 }
 
-func (pq *PriorityQueue) Last() (bool, Contact) {
+func (pq *PriorityQueue) Peek() (bool, Contact) {
 	old := pq.List
 	n := len(old)
 	if pq.Len() <= 0 {

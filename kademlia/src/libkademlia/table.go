@@ -81,26 +81,36 @@ func CreateShortList(contactList *[]Contact, list *BucketList, count *int, id ID
 	}
 }
 
-/*
+func CreateShortListIncludeKey(contactList *[]Contact, list *BucketList, count *int, id ID) {
+	for e := list.head; e != nil; e = e.Next() {
+		if *count < k {
+			*contactList = append(*contactList, e.contact)
+			*count++
+		} else {
+			return
+		}
+	}
+}
+
 func (table *RoutingTable) FindAlpha(id ID) []Contact {
 	prefixlen := id.Xor(table.SelfId).PrefixLen()
 	bucket := table.BucketLists[prefixlen]
 	var shortlist []Contact
 	count := 0
-	CreateShortList(&shortlist, bucket, &count, id)
-	for i := 1; (prefixlen-i >= 0 || prefixlen+i < b) && count <= 20; i++ {
+	CreateShortListIncludeKey(&shortlist, bucket, &count, id)
+	for i := 1; (prefixlen-i >= 0 || prefixlen+i < b) && count <= k; i++ {
 		if prefixlen-i >= 0 {
 			bucket = table.BucketLists[prefixlen-i]
-			CreateShortList(&shortlist, bucket, &count, id)
+			CreateShortListIncludeKey(&shortlist, bucket, &count, id)
 		}
 		if prefixlen+i < b {
 			bucket = table.BucketLists[prefixlen+i]
-			CreateShortList(&shortlist, bucket, &count, id)
+			CreateShortListIncludeKey(&shortlist, bucket, &count, id)
 		}
 	}
 	return shortlist
 }
-*/
+
 func (table *RoutingTable) FindCloset(id ID) []Contact {
 	prefixlen := id.Xor(table.SelfId).PrefixLen()
 	bucket := table.BucketLists[prefixlen]

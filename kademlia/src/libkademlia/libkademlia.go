@@ -179,13 +179,12 @@ func (k *Kademlia) HandleTable() {
 				node := k.table.FindContact(cmd.key)
 				Hashforcontact[cmd.clientid] <- contactresult{node}
 				delete(Hashforcontact, cmd.clientid)
-				/*	case 4:
-					//find alpha contact
-					nodes := k.table.FindAlpha(cmd.key)
-					result := findresult{nodes, nil, nil}
-					Hashforfind[cmd.clientid] <- result
-					delete(Hashforfind, cmd.clientid)
-				*/
+			case 4:
+				//find alpha contact
+				nodes := k.table.FindAlpha(cmd.key)
+				result := findresult{nodes, nil, nil}
+				Hashforfind[cmd.clientid] <- result
+				delete(Hashforfind, cmd.clientid)
 			}
 		}
 	}
@@ -256,8 +255,8 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	case <-time.After(10 * time.Second):
 		return nil, &CommandFailed{"Time Out"}
 	}
-	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
-	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
+	//	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
+	//	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
 	if !ping.MsgID.Equals(pong.MsgID) {
 		return nil, &CommandFailed{"Wrong MsgID"}
 	}
@@ -440,10 +439,14 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 		case 2:
 			for _, node := range request.contacts {
 				if _, ok := nodeSet[node.NodeID.AsString()]; !ok {
-					heap.Push(pq, node)
-					nodeSet[node.NodeID.AsString()] = true
+					if !node.NodeID.Equals(k.NodeID) {
+						heap.Push(pq, node)
+						log.Printf("Push into Heqp :%s\n", node.NodeID.AsString())
+						nodeSet[node.NodeID.AsString()] = true
+					}
 				}
 			}
+			request.channel <- heapResult{pq.Len(), nil}
 		case 3:
 			con := []Contact{}
 			length := pq.Len()
@@ -467,7 +470,6 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	ret := iterativeResult{false, k.SelfContact, nil, nil, nil}
 	activeNodes := &PriorityQueue{k.SelfContact, []Contact{}, key}
-	//nodeSet := make(map[string]bool)
 	respChannel := make(chan iterativeResult)
 	heapReq := make(chan heapRequest)
 
@@ -478,10 +480,13 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	clientid := NewRandomID()
 	client := Client{findchan: make(chan findresult), contactchan: make(chan contactresult), id: clientid, num: 1}
 	k.registerchannel <- client
-	k.findchannel <- findcommand{clientid, key, 1}
+	k.findchannel <- findcommand{clientid, key, 4}
 	result := <-client.findchan
 
-	heapReq <- heapRequest{2, make(chan heapResult), result.Nodes}
+	oldReq := heapRequest{2, make(chan heapResult), result.Nodes}
+	heapReq <- oldReq
+
+	<-oldReq.channel
 
 	newReq := heapRequest{1, make(chan heapResult), nil}
 	heapReq <- newReq
@@ -491,24 +496,15 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 		ret.err = &CommandFailed{"No node in kBucket"}
 		return ret
 	}
-	interval := 300
-	t := time.NewTicker(time.Duration(interval) * time.Millisecond)
-	quit := make(chan bool)
-	signal := false
 	go func() {
-		for !signal {
-			select {
-			case <-quit:
-				signal = <-quit
-			case <-t.C:
-				req := heapRequest{3, make(chan heapResult), nil}
-				heapReq <- req
-				PopResult := <-req.channel
-				for i := 0; i < alpha && i < PopResult.length; i++ {
-					contact := PopResult.contacts[i]
-					go k.doFind(contact, key, findValue, respChannel)
-				}
+		for {
+			req := heapRequest{3, make(chan heapResult), nil}
+			heapReq <- req
+			PopResult := <-req.channel
+			for _, node := range PopResult.contacts {
+				go k.doFind(node, key, findValue, respChannel)
 			}
+			time.Sleep(300 * time.Millisecond)
 		}
 	}()
 	//logic for iteration
@@ -516,8 +512,9 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 		result := <-respChannel
 		if result.success {
 			flag := true
-			ok, cnode := activeNodes.Last()
+			ok, cnode := activeNodes.Peek()
 			heap.Push(activeNodes, result.target)
+			log.Printf("ADD NodeID:%s\n", result.target.NodeID.AsString())
 			if ok {
 				flag = false
 				for _, node := range result.activeList {
@@ -542,7 +539,9 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 			}
 			req := heapRequest{2, make(chan heapResult), result.activeList}
 			heapReq <- req
+			<-req.channel
 		}
+
 	}
 	if findValue && ret.value != nil {
 		for activeNodes.Len() > 0 {
@@ -551,30 +550,30 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 		ret.success = true
 		return ret
 	}
-	//TODO logic for iteration
 	for activeNodes.Len() < 20 {
 		result := <-respChannel
 		if result.success {
 			if findValue && result.value != nil {
 				ret.value = result.value
 				break
-			} /*
-				NeedToPush := []Contact{}
-				for _, node := range result.activeList {
-					if ok, _ := nodeSet[node.NodeID.AsString()]; !ok {
-						NeedToPush = append(NeedToPush, node)
-						nodeSet[node.NodeID.AsString()] = true
+			}
+			/*
+					NeedToPush := []Contact{}
+					for _, node := range result.activeList {
+						if ok, _ := nodeSet[node.NodeID.AsString()]; !ok {
+							NeedToPush = append(NeedToPush, node)
+							nodeSet[node.NodeID.AsString()] = true
+						}
 					}
-				}*/
-			req := heapRequest{2, make(chan heapResult), result.activeList}
-			heapReq <- req
+				req := heapRequest{2, make(chan heapResult), result.activeList}
+				heapReq <- req
+			*/
 			heap.Push(activeNodes, result.target)
 		}
 	}
 	for activeNodes.Len() > 0 {
 		ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
 	}
-	quit <- true
 	//	close(respChannel)
 	ret.success = true
 	return ret
