@@ -230,6 +230,8 @@ func (e *CommandFailed) Error() string {
 }
 
 func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
+
+	defer TimeoutWarning("DoPing", "Total", time.Now(), float64(3))
 	ping := PingMessage{k.SelfContact, NewRandomID()}
 	var pong PongMessage
 	address := host.String() + ":" + strconv.Itoa(int(port))
@@ -590,18 +592,18 @@ outerloop:
 				}
 				heap.Push(activeNodes, result.target)
 			}
-			requestForLengthReq := heapRequest{1, 0, make(chan heapResult), nil}
-			heapReq <- requestForLengthReq
-			length_result := <-requestForLengthReq.channel
-
-			if length_result.length <= 0 {
-				fmt.Println("Break")
-				break
-			}
 			count--
 			if count == 0 {
 				break
 			}
+		}
+		requestForLengthReq := heapRequest{1, 0, make(chan heapResult), nil}
+		heapReq <- requestForLengthReq
+		length_result := <-requestForLengthReq.channel
+
+		if length_result.length <= 0 {
+			fmt.Println("Break")
+			break
 		}
 	}
 	for activeNodes.Len() > 0 {
