@@ -265,6 +265,40 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	return &result, nil
 }
 
+func (k *Kademlia) InternalPing(host net.IP, port uint16) (*Contact, error) {
+	ping := PingMessage{k.SelfContact, NewRandomID()}
+	var pong PongMessage
+	address := host.String() + ":" + strconv.Itoa(int(port))
+	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
+	client, err := rpc.DialHTTPPath("tcp", address, path)
+	defer client.Close()
+	if err != nil {
+		return nil, &CommandFailed{"HTTP Connect Error"}
+	}
+	/*
+		Use channel to decide time out
+	*/
+	errorChannel := make(chan error, 1)
+	go func() {
+		errorChannel <- client.Call("KademliaRPC.Ping", ping, &pong)
+	}()
+	select {
+	case err := <-errorChannel:
+		if err != nil {
+			log.Fatal("CallDoPing:", err)
+			return nil, err
+		}
+	case <-time.After(10 * time.Second):
+		return nil, &CommandFailed{"Time Out"}
+	}
+	//	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
+	//	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
+	if !ping.MsgID.Equals(pong.MsgID) {
+		return nil, &CommandFailed{"Wrong MsgID"}
+	}
+	result := pong.Sender
+	return &result, nil
+}
 func (k *Kademlia) DoStore(contact *Contact, key ID, value []byte) error {
 	// TODO: Implement
 	request := StoreRequest{k.SelfContact, NewRandomID(), key, value}
@@ -327,12 +361,14 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 		return nil, &CommandFailed{"Wrong MsgID"}
 	}
 	if result.Err == nil {
+		fmt.Println("Before update")
 		k.updatechannel <- updatecommand{*contact}
+		fmt.Println("After update")
 		for _, node := range result.Nodes {
 			k.updatechannel <- updatecommand{node}
 		}
 		fmt.Println("DoFindNode")
-		return result.Nodes, result.Err
+		return result.Nodes, nil
 	}
 	return nil, result.Err
 }
@@ -480,7 +516,7 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	ret := iterativeResult{false, k.SelfContact, nil, nil, nil}
 	activeNodes := &PriorityQueue{k.SelfContact, []Contact{}, key}
-	respChannel := make(chan iterativeResult)
+	respChannel := make(chan iterativeResult, 3)
 	heapReq := make(chan heapRequest)
 
 	heap.Init(activeNodes)

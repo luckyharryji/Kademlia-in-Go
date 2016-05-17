@@ -39,7 +39,7 @@ func (table *RoutingTable) UpDate(k *Kademlia, contact Contact) {
 			bucket.Push(contact)
 		} else {
 			firstnode := bucket.First()
-			_, err := k.DoPing(firstnode.contact.Host, firstnode.contact.Port)
+			_, err := k.InternalPing(firstnode.contact.Host, firstnode.contact.Port)
 			//If the node is not alive, update the table
 			if err != nil {
 				bucket.DeleteFrontInsert(contact)
