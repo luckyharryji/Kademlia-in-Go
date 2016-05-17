@@ -78,7 +78,7 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k := new(Kademlia)
 	k.NodeID = nodeID
 	k.table = NewRoutingTable(nodeID)
-	k.updatechannel = make(chan updatecommand)
+	k.updatechannel = make(chan updatecommand, 10)
 	k.findchannel = make(chan findcommand)
 	k.registerchannel = make(chan Client)
 	k.hash = make(map[ID][]byte)
@@ -230,8 +230,6 @@ func (e *CommandFailed) Error() string {
 }
 
 func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
-
-	defer TimeoutWarning("DoPing", "Total", time.Now(), float64(3))
 	ping := PingMessage{k.SelfContact, NewRandomID()}
 	var pong PongMessage
 	address := host.String() + ":" + strconv.Itoa(int(port))
@@ -257,8 +255,8 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	case <-time.After(10 * time.Second):
 		return nil, &CommandFailed{"Time Out"}
 	}
-	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
-	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
+	//	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
+	//	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
 	if !ping.MsgID.Equals(pong.MsgID) {
 		return nil, &CommandFailed{"Wrong MsgID"}
 	}
@@ -333,6 +331,7 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 		for _, node := range result.Nodes {
 			k.updatechannel <- updatecommand{node}
 		}
+		fmt.Println("DoFindNode")
 		return result.Nodes, result.Err
 	}
 	return nil, result.Err
@@ -401,11 +400,14 @@ type iterativeResult struct {
 
 func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan iterativeResult) {
 	if !findValue {
+		fmt.Println("Create task")
 		contacts, err := k.DoFindNode(&contact, key)
 		if err != nil {
 			resp <- iterativeResult{false, contact, nil, nil, err}
 		} else {
+			fmt.Println("Create iterativeResult")
 			resp <- iterativeResult{true, contact, contacts, nil, nil}
+			fmt.Println("Return iterativeResult")
 		}
 	} else {
 		value, contacts, err := k.DoFindValue(&contact, key)
@@ -507,12 +509,14 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	//logic for iteration
 outerloop:
 	for activeNodes.Len() < 20 {
+		fmt.Println("In outer loop")
 		count := 0
 		req := heapRequest{3, 3, make(chan heapResult), nil}
 		heapReq <- req
 		PopResult := <-req.channel
 		for _, node := range PopResult.contacts {
 			go k.doFind(node, key, findValue, respChannel)
+			fmt.Println("Request for :" + node.NodeID.AsString())
 			count++
 		}
 	innerloop:
@@ -524,7 +528,7 @@ outerloop:
 					flag := true
 					ok, cnode := activeNodes.Peek()
 					heap.Push(activeNodes, result.target)
-					// log.Printf("ADD NodeID:%s\n", result.target.NodeID.AsString())
+					log.Printf("ADD NodeID:%s\n", result.target.NodeID.AsString())
 					fmt.Println(activeNodes.Len())
 					if ok {
 						flag = false
@@ -571,39 +575,45 @@ outerloop:
 		return ret
 	}
 	fmt.Println("before make up", activeNodes.Len())
-
+OuterLoop:
 	for activeNodes.Len() < 20 {
 		length := 20 - activeNodes.Len()
 		count := 0
+		fmt.Println("Before Pop")
 		req := heapRequest{3, length, make(chan heapResult), nil}
 		heapReq <- req
 		PopResult := <-req.channel
+		fmt.Println("After Pop")
 		for _, node := range PopResult.contacts {
 			go k.doFind(node, key, findValue, respChannel)
 			count++
+			fmt.Println(count)
 		}
+	InnerLoop:
 		for {
 			result := <-respChannel
 			fmt.Println("After receive from channel", activeNodes.Len(), result.success)
 			if result.success {
 				if findValue && result.value != nil {
 					ret.value = result.value
-					break
+					break OuterLoop
 				}
 				heap.Push(activeNodes, result.target)
 			}
 			count--
 			if count == 0 {
-				break
+				break InnerLoop
 			}
-		}
-		requestForLengthReq := heapRequest{1, 0, make(chan heapResult), nil}
-		heapReq <- requestForLengthReq
-		length_result := <-requestForLengthReq.channel
-
-		if length_result.length <= 0 {
-			fmt.Println("Break")
-			break
+			fmt.Println(count)
+			fmt.Println("Before request for length")
+			requestForLengthReq := heapRequest{1, 0, make(chan heapResult), nil}
+			heapReq <- requestForLengthReq
+			length_result := <-requestForLengthReq.channel
+			fmt.Println("After request for length")
+			if length_result.length <= 0 {
+				fmt.Println("Break")
+				break OuterLoop
+			}
 		}
 	}
 	for activeNodes.Len() > 0 {
