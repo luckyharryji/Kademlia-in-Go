@@ -402,6 +402,7 @@ func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan ite
 	if !findValue {
 		fmt.Println("Create task")
 		contacts, err := k.DoFindNode(&contact, key)
+		fmt.Println("DoFindNode return")
 		if err != nil {
 			resp <- iterativeResult{false, contact, nil, nil, err}
 		} else {
@@ -546,6 +547,7 @@ outerloop:
 					}
 					fmt.Println(activeNodes.Len(), flag)
 					if !flag {
+						fmt.Println("Closet Node :" + cnode.NodeID.AsString())
 						break outerloop
 					}
 					fmt.Println(activeNodes.Len(), "Before channel")

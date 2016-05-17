@@ -166,7 +166,7 @@ func TestIterativeFindNode(t *testing.T) {
 	      \
 	         E
 	*/
-	kNum := 45
+	kNum := 50
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:7304")
 	instance2 := NewKademlia("localhost:7305")
@@ -184,11 +184,9 @@ func TestIterativeFindNode(t *testing.T) {
 		tree_node[i].DoPing(host2, port2)
 		t.Log("ID:" + tree_node[i].SelfContact.NodeID.AsString())
 	}
-	//fmt.Println("get here")
 	SearchKey := tree_node[targetIdx].SelfContact.NodeID
-	//fmt.Println("get searchkey")
 	Connect(t, tree_node, kNum)
-	//fmt.Println("after connect")
+	fmt.Println("SearchKey:" + SearchKey.AsString())
 	res, err := tree_node[0].DoIterativeFindNode(SearchKey)
 	if err != nil {
 		t.Error(err.Error())
