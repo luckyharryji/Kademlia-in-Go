@@ -78,7 +78,7 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k := new(Kademlia)
 	k.NodeID = nodeID
 	k.table = NewRoutingTable(nodeID)
-	k.updatechannel = make(chan updatecommand, 10)
+	k.updatechannel = make(chan updatecommand)
 	k.findchannel = make(chan findcommand)
 	k.registerchannel = make(chan Client)
 	k.hash = make(map[ID][]byte)
@@ -255,8 +255,6 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	case <-time.After(10 * time.Second):
 		return nil, &CommandFailed{"Time Out"}
 	}
-	//	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
-	//	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
 	if !ping.MsgID.Equals(pong.MsgID) {
 		return nil, &CommandFailed{"Wrong MsgID"}
 	}
@@ -265,6 +263,10 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	return &result, nil
 }
 
+/*
+InternalPing: for ping the LRU contact to decide whether replace it
+ping without send update query
+*/
 func (k *Kademlia) InternalPing(host net.IP, port uint16) (*Contact, error) {
 	ping := PingMessage{k.SelfContact, NewRandomID()}
 	var pong PongMessage
@@ -291,8 +293,6 @@ func (k *Kademlia) InternalPing(host net.IP, port uint16) (*Contact, error) {
 	case <-time.After(10 * time.Second):
 		return nil, &CommandFailed{"Time Out"}
 	}
-	//	log.Printf("ping msgID:%s\n", ping.MsgID.AsString())
-	//	log.Printf("pong msgID:%s\n", pong.MsgID.AsString())
 	if !ping.MsgID.Equals(pong.MsgID) {
 		return nil, &CommandFailed{"Wrong MsgID"}
 	}
@@ -361,13 +361,10 @@ func (k *Kademlia) DoFindNode(contact *Contact, searchKey ID) ([]Contact, error)
 		return nil, &CommandFailed{"Wrong MsgID"}
 	}
 	if result.Err == nil {
-		fmt.Println("Before update")
 		k.updatechannel <- updatecommand{*contact}
-		fmt.Println("After update")
 		for _, node := range result.Nodes {
 			k.updatechannel <- updatecommand{node}
 		}
-		fmt.Println("DoFindNode")
 		return result.Nodes, nil
 	}
 	return nil, result.Err
@@ -436,15 +433,11 @@ type iterativeResult struct {
 
 func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan iterativeResult) {
 	if !findValue {
-		fmt.Println("Create task")
 		contacts, err := k.DoFindNode(&contact, key)
-		fmt.Println("DoFindNode return")
 		if err != nil {
 			resp <- iterativeResult{false, contact, nil, nil, err}
 		} else {
-			fmt.Println("Create iterativeResult")
 			resp <- iterativeResult{true, contact, contacts, nil, nil}
-			fmt.Println("Return iterativeResult")
 		}
 	} else {
 		value, contacts, err := k.DoFindValue(&contact, key)
@@ -494,12 +487,10 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 					// ignore when self ID is returned
 					if !node.NodeID.Equals(k.NodeID) {
 						heap.Push(pq, node)
-						log.Printf("Push into Heap :%s\n", node.NodeID.AsString())
 						nodeSet[node.NodeID.AsString()] = true
 					}
 				}
 			}
-			fmt.Println("Handle Heap execute")
 			request.channel <- heapResult{pq.Len(), nil}
 		case 3:
 			// Pop the close element from the heap
@@ -516,7 +507,7 @@ func (k *Kademlia) HandleHeap(key ID, Req chan heapRequest) {
 func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	ret := iterativeResult{false, k.SelfContact, nil, nil, nil}
 	activeNodes := &PriorityQueue{k.SelfContact, []Contact{}, key}
-	respChannel := make(chan iterativeResult, 3)
+	respChannel := make(chan iterativeResult)
 	heapReq := make(chan heapRequest)
 
 	heap.Init(activeNodes)
@@ -546,14 +537,12 @@ func (k *Kademlia) Iterative(key ID, findValue bool) iterativeResult {
 	//logic for iteration
 outerloop:
 	for activeNodes.Len() < 20 {
-		fmt.Println("In outer loop")
 		count := 0
 		req := heapRequest{3, 3, make(chan heapResult), nil}
 		heapReq <- req
 		PopResult := <-req.channel
 		for _, node := range PopResult.contacts {
 			go k.doFind(node, key, findValue, respChannel)
-			fmt.Println("Request for :" + node.NodeID.AsString())
 			count++
 		}
 	innerloop:
@@ -565,8 +554,6 @@ outerloop:
 					flag := true
 					ok, cnode := activeNodes.Peek()
 					heap.Push(activeNodes, result.target)
-					log.Printf("ADD NodeID:%s\n", result.target.NodeID.AsString())
-					fmt.Println(activeNodes.Len())
 					if ok {
 						flag = false
 						// decide if one of the return node is closer to the object node
@@ -581,16 +568,12 @@ outerloop:
 						ret.value = result.value
 						break outerloop
 					}
-					fmt.Println(activeNodes.Len(), flag)
 					if !flag {
-						fmt.Println("Closet Node :" + cnode.NodeID.AsString())
 						break outerloop
 					}
-					fmt.Println(activeNodes.Len(), "Before channel")
 					req := heapRequest{2, 0, make(chan heapResult), result.activeList}
 					heapReq <- req
 					<-req.channel
-					fmt.Println("Get Push result")
 				}
 
 				if count == 0 {
@@ -601,10 +584,8 @@ outerloop:
 				break innerloop
 			}
 		}
-		fmt.Println("End of For loop", activeNodes.Len())
 	}
 
-	fmt.Println("after loop", activeNodes.Len())
 	if findValue && ret.value != nil {
 		for activeNodes.Len() > 0 {
 			ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
@@ -612,25 +593,20 @@ outerloop:
 		ret.success = true
 		return ret
 	}
-	fmt.Println("before make up", activeNodes.Len())
 OuterLoop:
 	for activeNodes.Len() < 20 {
 		length := 20 - activeNodes.Len()
 		count := 0
-		fmt.Println("Before Pop")
 		req := heapRequest{3, length, make(chan heapResult), nil}
 		heapReq <- req
 		PopResult := <-req.channel
-		fmt.Println("After Pop")
 		for _, node := range PopResult.contacts {
 			go k.doFind(node, key, findValue, respChannel)
 			count++
-			fmt.Println(count)
 		}
 	InnerLoop:
 		for {
 			result := <-respChannel
-			fmt.Println("After receive from channel", activeNodes.Len(), result.success)
 			if result.success {
 				if findValue && result.value != nil {
 					ret.value = result.value
@@ -642,14 +618,10 @@ OuterLoop:
 			if count == 0 {
 				break InnerLoop
 			}
-			fmt.Println(count)
-			fmt.Println("Before request for length")
 			requestForLengthReq := heapRequest{1, 0, make(chan heapResult), nil}
 			heapReq <- requestForLengthReq
 			length_result := <-requestForLengthReq.channel
-			fmt.Println("After request for length")
 			if length_result.length <= 0 {
-				fmt.Println("Break")
 				break OuterLoop
 			}
 		}
@@ -690,9 +662,7 @@ func (k *Kademlia) DoIterativeStore(key ID, value []byte) ([]Contact, error) {
 	if result.success {
 		for _, node := range result.activeList {
 			k.DoStore(&node, key, value)
-			fmt.Println("Store NodeID:" + node.NodeID.AsString())
 		}
-		fmt.Println("Stored and return contacts")
 		return result.activeList, nil
 	}
 	return nil, result.err
