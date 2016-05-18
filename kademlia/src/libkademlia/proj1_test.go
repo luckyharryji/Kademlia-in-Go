@@ -291,7 +291,7 @@ func TestIterativeFindValue(t *testing.T) {
 	Connect(t, tree_node, kNum)
 	value := []byte("hello")
 	tree_node[0].DoStore(&(tree_node[targetIdx].SelfContact), SearchKey, value)
-	res, err := tree_node[5].DoIterativeFindValue(SearchKey)
+	res, err := tree_node[0].DoIterativeFindValue(SearchKey)
 	if err != nil {
 		t.Error(err.Error())
 	}

@@ -551,6 +551,14 @@ outerloop:
 			case result := <-respChannel:
 				count--
 				if result.success {
+					if findValue && result.value != nil {
+						ret.value = result.value
+						ret.success = true
+						_, ret.target = activeNodes.Peek()
+						ret.activeList = nil
+						return ret
+						//break outerloop
+					}
 					flag := true
 					ok, cnode := activeNodes.Peek()
 					heap.Push(activeNodes, result.target)
@@ -564,10 +572,6 @@ outerloop:
 						}
 					}
 
-					if findValue && result.value != nil {
-						ret.value = result.value
-						break outerloop
-					}
 					if !flag {
 						break outerloop
 					}
@@ -585,14 +589,15 @@ outerloop:
 			}
 		}
 	}
-
-	if findValue && ret.value != nil {
-		for activeNodes.Len() > 0 {
-			ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
+	/*
+		if findValue && ret.value != nil {
+			for activeNodes.Len() > 0 {
+				ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
+			}
+			ret.success = true
+			return ret
 		}
-		ret.success = true
-		return ret
-	}
+	*/
 OuterLoop:
 	for activeNodes.Len() < 20 {
 		length := 20 - activeNodes.Len()
@@ -610,7 +615,11 @@ OuterLoop:
 			if result.success {
 				if findValue && result.value != nil {
 					ret.value = result.value
-					break OuterLoop
+					ret.activeList = nil
+					ret.success = true
+					_, ret.target = activeNodes.Peek()
+					return ret
+					//break OuterLoop
 				}
 				heap.Push(activeNodes, result.target)
 			}
@@ -625,6 +634,12 @@ OuterLoop:
 				break OuterLoop
 			}
 		}
+	}
+	if findValue && ret.value == nil {
+		ret.activeList = nil
+		ret.success = true
+		_, ret.target = activeNodes.Peek()
+		return ret
 	}
 	for activeNodes.Len() > 0 {
 		ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
@@ -671,9 +686,10 @@ func (k *Kademlia) DoIterativeFindValue(key ID) (value []byte, err error) {
 	result := k.Iterative(key, true)
 	if result.success {
 		if result.value != nil {
+			k.DoStore(&result.target, key, result.value)
 			return result.value, nil
 		} else {
-			return nil, &CommandFailed{"Cannot find value"}
+			return nil, &CommandFailed{"Cannot find value! Closet Node :" + result.target.NodeID.AsString()}
 		}
 	}
 	return nil, result.err
