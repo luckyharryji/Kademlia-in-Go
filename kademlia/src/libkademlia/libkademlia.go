@@ -431,6 +431,12 @@ type iterativeResult struct {
 	err        error
 }
 
+/*
+If it is an IterativeFindNode or IterativeStore we set findValue to be false.
+If it is an IterativeFindValue we set findValue to be true.
+If findValue is false then we do DoFindNode, if findValue is true then we DoFindValue.
+*/
+
 func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan iterativeResult) {
 	if !findValue {
 		contacts, err := k.DoFindNode(&contact, key)
@@ -554,13 +560,14 @@ outerloop:
 					if findValue && result.value != nil {
 						ret.value = result.value
 						ret.success = true
-						_, ret.target = activeNodes.Peek()
+						_, ret.target = activeNodes.Peek() //Find the closet node which doesn't return the value
 						ret.activeList = nil
 						return ret
-						//break outerloop
+						//If it is IterativeFindValue and we successfully find the value.
 					}
 					flag := true
 					ok, cnode := activeNodes.Peek()
+					//Get the closet node in the shortlist
 					heap.Push(activeNodes, result.target)
 					if ok {
 						flag = false
@@ -571,13 +578,13 @@ outerloop:
 							}
 						}
 					}
-
 					if !flag {
 						break outerloop
 					}
 					req := heapRequest{2, 0, make(chan heapResult), result.activeList}
 					heapReq <- req
 					<-req.channel
+					//Push the return result into potential heap
 				}
 
 				if count == 0 {
@@ -589,15 +596,7 @@ outerloop:
 			}
 		}
 	}
-	/*
-		if findValue && ret.value != nil {
-			for activeNodes.Len() > 0 {
-				ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
-			}
-			ret.success = true
-			return ret
-		}
-	*/
+	//If the closet node is not updated:
 OuterLoop:
 	for activeNodes.Len() < 20 {
 		length := 20 - activeNodes.Len()
@@ -617,9 +616,9 @@ OuterLoop:
 					ret.value = result.value
 					ret.activeList = nil
 					ret.success = true
-					_, ret.target = activeNodes.Peek()
+					_, ret.target = activeNodes.Peek() //Find the closet node which does not return the value
 					return ret
-					//break OuterLoop
+					//If it is an IterativeFindValue and we find the value
 				}
 				heap.Push(activeNodes, result.target)
 			}
@@ -644,7 +643,6 @@ OuterLoop:
 	for activeNodes.Len() > 0 {
 		ret.activeList = append(ret.activeList, heap.Pop(activeNodes).(Contact))
 	}
-	//	close(respChannel)
 	ret.success = true
 	return ret
 }
@@ -686,7 +684,8 @@ func (k *Kademlia) DoIterativeFindValue(key ID) (value []byte, err error) {
 	result := k.Iterative(key, true)
 	if result.success {
 		if result.value != nil {
-			k.DoStore(&result.target, key, result.value)
+			k.DoStore(&result.target, key, result.value) //Store the value to the closet node which doesn't return the value
+			fmt.Println("Store value to the closet node :" + result.target.NodeID.AsString())
 			return result.value, nil
 		} else {
 			return nil, &CommandFailed{"Cannot find value! Closet Node :" + result.target.NodeID.AsString()}
