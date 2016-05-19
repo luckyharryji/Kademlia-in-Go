@@ -146,9 +146,10 @@ func TestFindNode(t *testing.T) {
 	return
 }
 
+/*
 func Connect(t *testing.T, list []*Kademlia, kNum int) {
 	for i := 0; i < kNum; i++ {
-		for j := 0; j < kNum; j += 10 {
+		for j := 0; j < kNum; j += 5 {
 			if j != i {
 				list[i].DoPing(list[j].SelfContact.Host, list[j].SelfContact.Port)
 			}
@@ -165,7 +166,7 @@ func TestIterativeFindNode(t *testing.T) {
 	  A-B -- D
 	      \
 	         E
-	*/
+
 	kNum := 40
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:7304")
@@ -189,7 +190,7 @@ func TestIterativeFindNode(t *testing.T) {
 				tree_node[targetIdx].DoPing(tree_node[i].SelfContact.Host, tree_node[i].SelfContact.Port)
 			}
 		}
-	*/
+
 	SearchKey := tree_node[targetIdx].SelfContact.NodeID
 	Connect(t, tree_node, kNum)
 	res, err := tree_node[0].DoIterativeFindNode(SearchKey)
@@ -220,7 +221,7 @@ func TestIterativeStore(t *testing.T) {
 	  A-B -- D
 	      \
 	         E
-	*/
+
 	kNum := 40
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:10004")
@@ -244,7 +245,7 @@ func TestIterativeStore(t *testing.T) {
 				tree_node[targetIdx].DoPing(tree_node[i].SelfContact.Host, tree_node[i].SelfContact.Port)
 			}
 		}
-	*/
+
 	SearchKey := tree_node[targetIdx].SelfContact.NodeID
 	Connect(t, tree_node, kNum)
 	value := []byte("hello")
@@ -281,7 +282,7 @@ func TestIterativeFindValue(t *testing.T) {
 	  A-B -- D
 	      \
 	         E
-	*/
+
 	kNum := 40
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:20004")
@@ -325,6 +326,8 @@ func TestIterativeFindValue(t *testing.T) {
 	return
 }
 
+
+*/
 func TestFindValue(t *testing.T) {
 	// tree structure;
 	// A->B->tree

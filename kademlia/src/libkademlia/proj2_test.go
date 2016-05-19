@@ -5,35 +5,15 @@ import (
 	//"container/heap"
 	//"math/rand"
 	//	"fmt"
-	"net"
+	//"net"
 	"strconv"
 	"testing"
 	//"time"
 )
 
-func StringToIpPort(laddr string) (ip net.IP, port uint16, err error) {
-	hostString, portString, err := net.SplitHostPort(laddr)
-	if err != nil {
-		return
-	}
-	ipStr, err := net.LookupHost(hostString)
-	if err != nil {
-		return
-	}
-	for i := 0; i < len(ipStr); i++ {
-		ip = net.ParseIP(ipStr[i])
-		if ip.To4() != nil {
-			break
-		}
-	}
-	portInt, err := strconv.Atoi(portString)
-	port = uint16(portInt)
-	return
-}
-
 func Connect(t *testing.T, list []*Kademlia, kNum int) {
 	for i := 0; i < kNum; i++ {
-		for j := 0; j < kNum; j += 10 {
+		for j := 0; j < kNum; j += 5 {
 			if j != i {
 				list[i].DoPing(list[j].SelfContact.Host, list[j].SelfContact.Port)
 			}
@@ -194,7 +174,7 @@ func TestIterativeFindValue(t *testing.T) {
 	SearchKey := tree_node[targetIdx].SelfContact.NodeID
 	Connect(t, tree_node, kNum)
 	value := []byte("hello")
-	tree_node[0].DoStore(&(tree_node[targetIdx].SelfContact), SearchKey, value)
+	tree_node[0].DoStore(&tree_node[targetIdx].SelfContact, SearchKey, value)
 	res, err := tree_node[0].DoIterativeFindValue(SearchKey)
 	//fmt.Println("SelfContact NodeID :" + tree_node[0].NodeID.AsString())
 	if err != nil {
