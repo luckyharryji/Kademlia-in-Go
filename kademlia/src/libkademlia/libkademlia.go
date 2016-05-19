@@ -451,7 +451,11 @@ func (k *Kademlia) doFind(contact Contact, key ID, findValue bool, resp chan ite
 		if err != nil {
 			resp <- iterativeResult{false, contact, nil, nil, err}
 		} else {
-			resp <- iterativeResult{true, contact, contacts, value, nil}
+			if value != nil {
+				resp <- iterativeResult{true, contact, contacts, value, nil}
+			} else {
+				resp <- iterativeResult{true, contact, contacts, nil, nil}
+			}
 		}
 	}
 }

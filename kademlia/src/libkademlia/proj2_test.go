@@ -13,7 +13,7 @@ import (
 
 func Connect(t *testing.T, list []*Kademlia, kNum int) {
 	for i := 0; i < kNum; i++ {
-		for j := 0; j < kNum; j += 5 {
+		for j := 0; j < kNum; j += 20 {
 			if j != i {
 				list[i].DoPing(list[j].SelfContact.Host, list[j].SelfContact.Port)
 			}
@@ -175,7 +175,7 @@ func TestIterativeFindValue(t *testing.T) {
 	Connect(t, tree_node, kNum)
 	value := []byte("hello")
 	tree_node[0].DoStore(&tree_node[targetIdx].SelfContact, SearchKey, value)
-	res, err := tree_node[0].DoIterativeFindValue(SearchKey)
+	res, err := tree_node[1].DoIterativeFindValue(SearchKey)
 	//fmt.Println("SelfContact NodeID :" + tree_node[0].NodeID.AsString())
 	if err != nil {
 		t.Error(err.Error())
