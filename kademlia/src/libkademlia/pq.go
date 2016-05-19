@@ -38,14 +38,14 @@ func (pq *PriorityQueue) Push(x interface{}) {
 	pq.List = append(pq.List, x.(Contact))
 }
 
-func (pq *PriorityQueue) Last() (bool, Contact) {
+func (pq *PriorityQueue) Peek() (bool, Contact) {
 	if pq.Len() <= 0 {
 		return false, pq.SelfContact
 	}
 	return true, pq.List[0]
 }
 
-func (pq *PriorityQueue) Peek() (bool, Contact) {
+func (pq *PriorityQueue) Last() (bool, Contact) {
 	old := pq.List
 	n := len(old)
 	if pq.Len() <= 0 {

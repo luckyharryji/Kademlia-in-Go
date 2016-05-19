@@ -90,6 +90,7 @@ func (k *KademliaRPC) FindNode(req FindNodeRequest, res *FindNodeResult) error {
 	result := <-client.findchan
 	defer close(client.findchan)
 	res.Nodes = result.Nodes
+	res.Err = result.err
 	return nil
 }
 

@@ -169,9 +169,9 @@ func (k *Kademlia) HandleTable() {
 				delete(Hashforfind, cmd.clientid)
 			case 2:
 				//find value
-				value, _ := k.LocalFindValue(cmd.key)
+				value, err := k.LocalFindValue(cmd.key)
 				nodes := k.table.FindCloset(cmd.key)
-				result := findresult{nodes, value, nil}
+				result := findresult{nodes, value, err}
 				Hashforfind[cmd.clientid] <- result
 				delete(Hashforfind, cmd.clientid)
 			case 3:
@@ -410,6 +410,7 @@ func (k *Kademlia) DoFindValue(contact *Contact,
 		}
 		return result.Value, result.Nodes, nil
 	}
+
 	return nil, nil, result.Err
 }
 
@@ -685,6 +686,8 @@ func (k *Kademlia) DoIterativeFindValue(key ID) (value []byte, err error) {
 	if result.success {
 		if result.value != nil {
 			k.DoStore(&result.target, key, result.value) //Store the value to the closet node which doesn't return the value
+			//fmt.Println(key.Xor(result.target.NodeID).PrefixLen())
+			//fmt.Println(key.Xor(key).PrefixLen())
 			fmt.Println("Store value to the closet node :" + result.target.NodeID.AsString())
 			return result.value, nil
 		} else {

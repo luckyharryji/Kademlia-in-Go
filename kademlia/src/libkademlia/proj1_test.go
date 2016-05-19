@@ -166,7 +166,7 @@ func TestIterativeFindNode(t *testing.T) {
 	      \
 	         E
 	*/
-	kNum := 50
+	kNum := 40
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:7304")
 	instance2 := NewKademlia("localhost:7305")
@@ -183,6 +183,13 @@ func TestIterativeFindNode(t *testing.T) {
 		tree_node[i] = NewKademlia(address)
 		tree_node[i].DoPing(host2, port2)
 	}
+	/*
+		for i := 0; i < kNum; i++ {
+			if i != targetIdx {
+				tree_node[targetIdx].DoPing(tree_node[i].SelfContact.Host, tree_node[i].SelfContact.Port)
+			}
+		}
+	*/
 	SearchKey := tree_node[targetIdx].SelfContact.NodeID
 	Connect(t, tree_node, kNum)
 	res, err := tree_node[0].DoIterativeFindNode(SearchKey)
@@ -199,7 +206,6 @@ func TestIterativeFindNode(t *testing.T) {
 		}
 	}
 	if !find {
-		t.Log("Instance2:" + instance2.NodeID.AsString())
 		t.Error("Find wrong id")
 	}
 	return
@@ -215,7 +221,7 @@ func TestIterativeStore(t *testing.T) {
 	      \
 	         E
 	*/
-	kNum := 50
+	kNum := 40
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:10004")
 	instance2 := NewKademlia("localhost:10005")
@@ -232,6 +238,13 @@ func TestIterativeStore(t *testing.T) {
 		tree_node[i] = NewKademlia(address)
 		tree_node[i].DoPing(host2, port2)
 	}
+	/*
+		for i := 0; i < kNum; i++ {
+			if i != targetIdx {
+				tree_node[targetIdx].DoPing(tree_node[i].SelfContact.Host, tree_node[i].SelfContact.Port)
+			}
+		}
+	*/
 	SearchKey := tree_node[targetIdx].SelfContact.NodeID
 	Connect(t, tree_node, kNum)
 	value := []byte("hello")
@@ -254,7 +267,6 @@ func TestIterativeStore(t *testing.T) {
 		}
 	}
 	if !find {
-		t.Log("Instance2:" + instance2.NodeID.AsString())
 		t.Error("Find wrong value")
 	}
 	return
@@ -270,7 +282,7 @@ func TestIterativeFindValue(t *testing.T) {
 	      \
 	         E
 	*/
-	kNum := 50
+	kNum := 40
 	targetIdx := kNum - 10
 	instance1 := NewKademlia("localhost:20004")
 	instance2 := NewKademlia("localhost:20005")
@@ -287,6 +299,13 @@ func TestIterativeFindValue(t *testing.T) {
 		tree_node[i] = NewKademlia(address)
 		tree_node[i].DoPing(host2, port2)
 	}
+
+	for i := 0; i < kNum; i++ {
+		if i != targetIdx {
+			tree_node[i].DoPing(tree_node[targetIdx].SelfContact.Host, tree_node[targetIdx].SelfContact.Port)
+		}
+	}
+
 	SearchKey := tree_node[targetIdx].SelfContact.NodeID
 	Connect(t, tree_node, kNum)
 	value := []byte("hello")
@@ -301,7 +320,6 @@ func TestIterativeFindValue(t *testing.T) {
 		find = false
 	}
 	if !find {
-		t.Log("Instance2:" + instance2.NodeID.AsString())
 		t.Error("Find wrong value")
 	}
 	return
