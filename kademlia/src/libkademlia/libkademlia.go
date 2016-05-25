@@ -747,12 +747,13 @@ func (k *Kademlia) StoreVdoObj(VdoID ID, vdo VanashingDataObject){
 	k.VDOStoreChannel <- store_req
 }
 
-func (k *Kademlia) Vanish(data []byte, numberKeys byte,
-	threshold byte, timeoutSeconds int) (vdo VanashingDataObject) {
+func (k *Kademlia) Vanish(vdoID ID, data []byte, numberKeys byte, threshold byte, timeoutSeconds int) (vdo VanashingDataObject) {
 	// Xiangyu: remaining handling timeout
-	return k.VanishData(data, numberKeys, threshold, timeoutSeconds)
+	vdo_after_vanish := k.VanishData(data, numberKeys, threshold, timeoutSeconds)
+	k.StoreVdoObj(vdoID, vdo_after_vanish)
+	return vdo_after_vanish
 }
 
-func (k *Kademlia) Unvanish(searchKey ID) (data []byte) {
+func (k *Kademlia) Unvanish(nodeID ID, vdoID ID)(data []byte) {
 	return nil
 }
