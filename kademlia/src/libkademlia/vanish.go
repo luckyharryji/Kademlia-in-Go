@@ -98,6 +98,7 @@ func (k *Kademlia) VanishData(data []byte, numberKeys byte,
 }
 
 func (k *Kademlia) UnvanishData(vdo VanashingDataObject) (data []byte) {
+	// xiangyu: Also return error for this function?
 	access_key := vdo.AccessKey
 	data_after_encrypt := vdo.Ciphertext
 	numberKeys := vdo.NumberKeys

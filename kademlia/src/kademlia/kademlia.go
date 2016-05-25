@@ -395,7 +395,7 @@ unvanish [Node ID] [VDO ID]
 			return
 		}
 		// xiangyu: VODID for store the VOD locally
-		_, err := libkademlia.IDFromString(toks[1])
+		VDO_id, err := libkademlia.IDFromString(toks[1])
 		if err != nil {
 			response = "ERR: Provided an invalid VDO ey (" + toks[1] + ")"
 			return
@@ -412,6 +412,7 @@ unvanish [Node ID] [VDO ID]
 		}
 		// xinagyu : timeout/Storage unimplemented
 		VDO_obj := k.VanishData([]byte(toks[2]), byte(numberKeys), byte(threshold), 0)
+		k.StoreVdoObj(VDO_id, VDO_obj)
 		fmt.Println(VDO_obj.Threshold)
 		return
 

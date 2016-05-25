@@ -26,6 +26,11 @@ type Kademlia struct {
 	SelfContact     Contact
 	hash            map[ID][]byte
 	hashchannel     chan hashcommand
+
+	// Xiangyu: for vanish
+	VDOStoreChannel chan VDO_Obj_For_Store
+	VDOStorage		map[ID]VanashingDataObject
+
 	updatechannel   chan updatecommand
 	findchannel     chan findcommand
 	registerchannel chan Client
@@ -38,6 +43,14 @@ type hashcommand struct {
 	value         []byte
 	returnchannel chan hashreturn
 }
+
+type VDO_Obj_For_Store struct {
+	VDO_id	 ID
+	VDO_Obj	 VanashingDataObject
+	// Time_out  time.Second
+	// xiangyu: Remaining issue
+}
+
 
 type updatecommand struct {
 	contact Contact
@@ -83,6 +96,11 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k.registerchannel = make(chan Client)
 	k.hash = make(map[ID][]byte)
 	k.hashchannel = make(chan hashcommand)
+
+	// xiangyu: store for VDO
+	k.VDOStoreChannel = make(chan VDO_Obj_For_Store)
+	go k.HandleVDOStore()
+
 	go k.HandleTable()
 	go k.HandleHash()
 	kRPC := new(KademliaRPC)
@@ -135,6 +153,13 @@ func (k *Kademlia) HandleHash() {
 			result, ok := k.hash[cmd.key]
 			cmd.returnchannel <- hashreturn{result, ok}
 		}
+	}
+}
+
+// Use Channel to store VDO locally
+func (k *Kademlia) HandleVDOStore() {
+	for obj := range k.VDOStoreChannel {
+		k.VDOStorage[obj.VDO_id] = obj.VDO_Obj
 	}
 }
 
@@ -702,6 +727,14 @@ func (k *Kademlia) DoIterativeFindValue(key ID) (value []byte, err error) {
 }
 
 // For project 3!
+func (k *Kademlia) StoreVdoObj(VdoID ID, vdo VanashingDataObject){
+	store_req := VDO_Obj_For_Store {
+		VDO_id: VdoID,
+		VDO_Obj: vdo,
+	}
+	k.VDOStoreChannel <- store_req
+}
+
 func (k *Kademlia) Vanish(data []byte, numberKeys byte,
 	threshold byte, timeoutSeconds int) (vdo VanashingDataObject) {
 	return
