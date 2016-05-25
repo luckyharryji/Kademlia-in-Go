@@ -416,12 +416,12 @@ unvanish [Node ID] [VDO ID]
 		return
 
 	case toks[0] == "unvanish":
-		if len(toks) != 2 {
+		if len(toks) != 3 {
 			response = "usage: unvanish [Node ID] [VDO ID]"
 			return
 		}
 		// xiangyu: find unimplemented
-		_, err := libkademlia.IDFromString(toks[1])
+		node_id, err := libkademlia.IDFromString(toks[1])
 		if err != nil {
 			response = "ERR: Provided an invalid node ID(" + toks[1] + ")"
 			return
@@ -433,7 +433,8 @@ unvanish [Node ID] [VDO ID]
 		}
 		fmt.Println(VODID)
 		// unimplemented
-		return
+		data_unvanish := k.Unvanish(node_id, VODID)
+		return string(data_unvanish)
 	default:
 		response = "ERR: Unknown command"
 	}

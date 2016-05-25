@@ -166,7 +166,7 @@ func (k *Kademlia) HandleVDOStore() {
 			k.VDOStorage[obj.VDO_id] = obj.VDO_Obj
 		case -1:
 			delete(k.VDOStorage, obj.VDO_id) // xiangyu: what if does not existst
-		case 2:
+		case 0:
 			obj.Query_result_channel <- k.VDOStorage[obj.VDO_id]
 			// fmt.Println("Return here")
 		}
@@ -747,6 +747,74 @@ func (k *Kademlia) StoreVdoObj(VdoID ID, vdo VanashingDataObject){
 	k.VDOStoreChannel <- store_req
 }
 
+func (k *Kademlia) DoFindVdoFromSingleContact(contact Contact, vdoID ID) (vdo VanashingDataObject) {
+	find_request_id := NewRandomID()
+	get_vdo_request := GetVDORequest {
+		Sender: k.SelfContact,
+		VdoID: vdoID,
+		MsgID: find_request_id,
+	}
+	get_vdo_result := new(GetVDOResult)
+	host := contact.Host.String()
+	port := strconv.Itoa(int(contact.Port))
+	address := host + ":" + port
+	path := rpc.DefaultRPCPath + port
+	client, err := rpc.DialHTTPPath("tcp", address, path)
+	defer client.Close()
+	if err != nil {
+		// Connection Error
+		return
+	}
+	errorChannel := make(chan error, 1)
+	go func() {
+		errorChannel <- client.Call("KademliaRPC.GetVDO", get_vdo_request, get_vdo_result)
+	}()
+	select {
+	case err := <-errorChannel:
+		if err != nil {
+			return
+		}
+	case <-time.After(10 * time.Second):
+		return
+	}
+	update := updatecommand{contact}
+	k.updatechannel <- update
+	return get_vdo_result.VDO
+}
+
+func (k *Kademlia) FindVdoFromContactList(contact_list []Contact, vdoID ID) (vdo VanashingDataObject){
+	for _, node_obj :=  range contact_list {
+		vdo_from_node := k.DoFindVdoFromSingleContact(node_obj, vdoID)
+		if &vdo_from_node != nil{
+			return vdo_from_node
+		}
+	}
+	return
+}
+
+func (k *Kademlia) LocalFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObject) {
+	local_node, err := k.FindContact(nodeID)
+	if err != nil {
+		return nil
+	}
+	local_find_vdo := k.DoFindVdoFromSingleContact(*local_node, vdoID)
+	return &local_find_vdo
+}
+
+func (k *Kademlia) IterativeFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObject) {
+	nodes_candidates_with_vdo, err := k.DoIterativeFindNode(nodeID)
+	if err != nil{
+		// error when finding
+		return nil
+	}
+	if nodes_candidates_with_vdo == nil || len(nodes_candidates_with_vdo) == 0 {
+		// No node is found
+		return nil
+	}
+	vdo_from_list := k.FindVdoFromContactList(nodes_candidates_with_vdo, vdoID)
+	return &vdo_from_list
+}
+
 func (k *Kademlia) Vanish(vdoID ID, data []byte, numberKeys byte, threshold byte, timeoutSeconds int) (vdo VanashingDataObject) {
 	// Xiangyu: remaining handling timeout
 	vdo_after_vanish := k.VanishData(data, numberKeys, threshold, timeoutSeconds)
@@ -755,5 +823,22 @@ func (k *Kademlia) Vanish(vdoID ID, data []byte, numberKeys byte, threshold byte
 }
 
 func (k *Kademlia) Unvanish(nodeID ID, vdoID ID)(data []byte) {
-	return nil
+	var vdo_obj VanashingDataObject
+	local_vdo := k.LocalFindVdo(nodeID, vdoID)
+	if local_vdo != nil {
+		vdo_obj = *local_vdo
+	} else {
+		remote_vdo := k.IterativeFindVdo(nodeID, vdoID)
+		if remote_vdo != nil {
+			vdo_obj = *remote_vdo
+		}
+	}
+	if &vdo_obj == nil {
+		return nil
+	}
+	if vdo_obj.NumberKeys == byte(0) {
+		return nil
+	} else {
+		return k.UnvanishData(vdo_obj)
+	}
 }
