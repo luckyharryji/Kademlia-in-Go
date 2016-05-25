@@ -411,7 +411,7 @@ unvanish [Node ID] [VDO ID]
 			return
 		}
 		// xinagyu : timeout/Storage unimplemented
-		VDO_obj := k.VanishData([]byte(toks[2]), byte(numberKeys), byte(threshold), 0)
+		VDO_obj := k.Vanish([]byte(toks[2]), byte(numberKeys), byte(threshold), 0)
 		k.StoreVdoObj(VDO_id, VDO_obj)
 		fmt.Println(VDO_obj.Threshold)
 		return

@@ -749,7 +749,8 @@ func (k *Kademlia) StoreVdoObj(VdoID ID, vdo VanashingDataObject){
 
 func (k *Kademlia) Vanish(data []byte, numberKeys byte,
 	threshold byte, timeoutSeconds int) (vdo VanashingDataObject) {
-	return
+	// Xiangyu: remaining handling timeout
+	return k.VanishData(data, numberKeys, threshold, timeoutSeconds)
 }
 
 func (k *Kademlia) Unvanish(searchKey ID) (data []byte) {
