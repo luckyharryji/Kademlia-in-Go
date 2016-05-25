@@ -143,8 +143,22 @@ type GetVDOResult struct {
 
 func (k *KademliaRPC) GetVDO(req GetVDORequest, res *GetVDOResult) error {
 	// TODO: Implement.
-	// res.MsgID = CopyID(req.MsgID)
-	// update := updatecommand{req.Sender}
-	// k.kademlia.updatechannel <- update
+	res.MsgID = CopyID(req.MsgID)
+	update := updatecommand{req.Sender}
+	k.kademlia.updatechannel <- update
+	id_of_vdo := req.VdoID
+	result_channel := make(chan VanashingDataObject)
+	// xiangyu : wired type??
+	empty_vdo_obj := new(VanashingDataObject)
+	find_req := VDO_Obj_For_Store {
+		VDO_id: id_of_vdo,
+		VDO_Obj: *empty_vdo_obj,
+		Cmd_type: 0,
+		Query_result_channel: result_channel,
+	}
+	k.kademlia.VDOStoreChannel <- find_req
+	find_result := <- result_channel
+	res.VDO = find_result
+	// xiangyu: unimplemented time out?
 	return nil
 }

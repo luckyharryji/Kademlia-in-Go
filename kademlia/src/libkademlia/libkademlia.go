@@ -47,6 +47,8 @@ type hashcommand struct {
 type VDO_Obj_For_Store struct {
 	VDO_id	 ID
 	VDO_Obj	 VanashingDataObject
+	Cmd_type int
+	Query_result_channel chan VanashingDataObject
 	// Time_out  time.Second
 	// xiangyu: Remaining issue
 }
@@ -159,7 +161,15 @@ func (k *Kademlia) HandleHash() {
 // Use Channel to store VDO locally
 func (k *Kademlia) HandleVDOStore() {
 	for obj := range k.VDOStoreChannel {
-		k.VDOStorage[obj.VDO_id] = obj.VDO_Obj
+		switch obj.Cmd_type{
+		case 1:
+			k.VDOStorage[obj.VDO_id] = obj.VDO_Obj
+		case -1:
+			delete(k.VDOStorage, obj.VDO_id) // xiangyu: what if does not existst
+		case 2:
+			obj.Query_result_channel <- k.VDOStorage[obj.VDO_id]
+			// fmt.Println("Return here")
+		}
 	}
 }
 
@@ -731,6 +741,8 @@ func (k *Kademlia) StoreVdoObj(VdoID ID, vdo VanashingDataObject){
 	store_req := VDO_Obj_For_Store {
 		VDO_id: VdoID,
 		VDO_Obj: vdo,
+		Cmd_type: 1,
+		Query_result_channel: nil,
 	}
 	k.VDOStoreChannel <- store_req
 }
