@@ -383,7 +383,57 @@ func executeLine(k *libkademlia.Kademlia, line string) (response string) {
 		} else {
 			response = fmt.Sprintf("OK: Found value %s", value)
 		}
+// add support for vanish
+/*
+vanish [VDO ID] [data] [numberKeys] [threshold]
+unvanish [Node ID] [VDO ID]
+*/
+	case toks[0] == "vanish":
+		// perform vanish
+		if len(toks) != 5 {
+			response = "usage: vanish [VDO ID] [data] [numberKeys] [threshold]"
+			return
+		}
+		// xiangyu: VODID for store the VOD locally
+		_, err := libkademlia.IDFromString(toks[1])
+		if err != nil {
+			response = "ERR: Provided an invalid VDO ey (" + toks[1] + ")"
+			return
+		}
+		numberKeys, err := strconv.Atoi(toks[3])
+		if err != nil {
+			response = "ERR: Provided an invalid numberKeys (" + toks[3] + ")"
+			return
+		}
+		threshold, err := strconv.Atoi(toks[4])
+		if err != nil {
+			response = "ERR: Provided an invalid threshold (" + toks[4] + ")"
+			return
+		}
+		// xinagyu : timeout/Storage unimplemented
+		VDO_obj := k.VanishData([]byte(toks[2]), byte(numberKeys), byte(threshold), 0)
+		fmt.Println(VDO_obj.Threshold)
+		return
 
+	case toks[0] == "unvanish":
+		if len(toks) != 2 {
+			response = "usage: unvanish [Node ID] [VDO ID]"
+			return
+		}
+		// xiangyu: find unimplemented
+		_, err := libkademlia.IDFromString(toks[1])
+		if err != nil {
+			response = "ERR: Provided an invalid node ID(" + toks[1] + ")"
+			return
+		}
+		VODID, err := libkademlia.IDFromString(toks[2])
+		if err != nil {
+			response = "ERR: Provided an invalid VDO object ID(" + toks[2] + ")"
+			return
+		}
+		fmt.Println(VODID)
+		// unimplemented
+		return
 	default:
 		response = "ERR: Unknown command"
 	}

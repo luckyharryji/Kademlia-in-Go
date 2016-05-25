@@ -7,7 +7,7 @@ import (
 	"io"
 	mathrand "math/rand"
 	"time"
-	//"sss"
+	"sss"
 )
 
 type VanashingDataObject struct {
@@ -74,7 +74,27 @@ func decrypt(key []byte, ciphertext []byte) (text []byte) {
 
 func (k *Kademlia) VanishData(data []byte, numberKeys byte,
 	threshold byte, timeoutSeconds int) (vdo VanashingDataObject) {
-	return
+	cryptographic_key := GenerateRandomCryptoKey()
+	data_after_encrypt := encrypt(cryptographic_key, data)
+	sss_key_map, _ := sss.Split(numberKeys, threshold, cryptographic_key)
+	// xiangyu: handle error here??
+	access_key := GenerateRandomAccessKey()
+	count := int64(numberKeys)
+	node_list_to_store := CalculateSharedKeyLocations(access_key, count)
+	node_index := 0
+	for key, value := range sss_key_map {
+		all := append([]byte{key}, value...)
+		// xiangyu : start new go_routine to store?
+		k.DoIterativeStore(node_list_to_store[node_index], all)
+		node_index += 1
+	}
+	VDO_obj := VanashingDataObject{
+		AccessKey: access_key,
+		Ciphertext: data_after_encrypt,
+		NumberKeys: numberKeys,
+		Threshold: threshold,
+	}
+	return VDO_obj
 }
 
 func (k *Kademlia) UnvanishData(vdo VanashingDataObject) (data []byte) {
