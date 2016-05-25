@@ -98,5 +98,25 @@ func (k *Kademlia) VanishData(data []byte, numberKeys byte,
 }
 
 func (k *Kademlia) UnvanishData(vdo VanashingDataObject) (data []byte) {
-	return nil
+	access_key := vdo.AccessKey
+	data_after_encrypt := vdo.Ciphertext
+	numberKeys := vdo.NumberKeys
+	threshold := int(vdo.Threshold)
+	count := int64(numberKeys)
+	node_storing_id_list := CalculateSharedKeyLocations(access_key, count)
+	sss_map := make(map[byte] []byte)
+	for _, node_id := range node_storing_id_list {
+		content, _ := k.DoIterativeFindValue(node_id)
+		// xiangyu: error handling
+		key := content[0]
+		value := content[1:]
+		sss_map[key] = value
+		if len(sss_map) == threshold {
+			break
+		}
+	}
+	// xiangyu: handle error: not able to restore??
+	cryptographic_key := sss.Combine(sss_map)
+	data_before_encrypt := decrypt(cryptographic_key, data_after_encrypt)
+	return data_before_encrypt
 }
