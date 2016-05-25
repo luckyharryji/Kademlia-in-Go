@@ -143,5 +143,8 @@ type GetVDOResult struct {
 
 func (k *KademliaRPC) GetVDO(req GetVDORequest, res *GetVDOResult) error {
 	// TODO: Implement.
+	// res.MsgID = CopyID(req.MsgID)
+	// update := updatecommand{req.Sender}
+	// k.kademlia.updatechannel <- update
 	return nil
 }
