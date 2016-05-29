@@ -815,10 +815,27 @@ func (k *Kademlia) IterativeFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObje
 	return &vdo_from_list
 }
 
+func (k *Kademlia) Republish(timeoutSeconds int, vdo_obj VanashingDataObject, vdoID ID) {
+	epoch := 1
+	ForLoop:
+		for {
+			select{
+			case <-time.After(time.Duration(timeoutSeconds) * time.Second):
+				break ForLoop
+			case <-time.After(time.Duration(400 * epoch) * time.Minute):
+				data := k.UnvanishData(vdo_obj)
+				vdo_refresh := k.VanishDataWithRepublish(data, vdo_obj.NumberKeys, vdo_obj.Threshold, epoch)
+				k.StoreVdoObj(vdoID, vdo_refresh)
+				epoch += 1
+			}
+		}
+}
+
 func (k *Kademlia) Vanish(vdoID ID, data []byte, numberKeys byte, threshold byte, timeoutSeconds int) (vdo VanashingDataObject) {
 	// Xiangyu: remaining handling timeout
 	vdo_after_vanish := k.VanishData(data, numberKeys, threshold, timeoutSeconds)
 	k.StoreVdoObj(vdoID, vdo_after_vanish)
+	go k.Republish(timeoutSeconds, vdo_after_vanish, vdoID)
 	return vdo_after_vanish
 }
 

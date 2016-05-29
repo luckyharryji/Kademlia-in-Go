@@ -1,5 +1,7 @@
-run:
+import:
 	export GOPATH=`pwd`
+
+run:
 	go install kademlia
 	./bin/kademlia localhost:2334 localhost:2334
 
