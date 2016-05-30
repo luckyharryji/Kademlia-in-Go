@@ -139,6 +139,7 @@ type GetVDORequest struct {
 type GetVDOResult struct {
 	MsgID ID
 	VDO   VanashingDataObject
+	Error error
 }
 
 func (k *KademliaRPC) GetVDO(req GetVDORequest, res *GetVDOResult) error {
@@ -150,15 +151,23 @@ func (k *KademliaRPC) GetVDO(req GetVDORequest, res *GetVDOResult) error {
 	result_channel := make(chan VanashingDataObject)
 	// xiangyu : wired type??
 	empty_vdo_obj := new(VanashingDataObject)
-	find_req := VDO_Obj_For_Store {
+	error_channel := make(chan error)
+	find_req := VDO_Obj_For_Command {
 		VDO_id: id_of_vdo,
 		VDO_Obj: *empty_vdo_obj,
 		Cmd_type: 0,
 		Query_result_channel: result_channel,
+		errors: error_channel,
 	}
 	k.kademlia.VDOStoreChannel <- find_req
-	find_result := <- result_channel
-	res.VDO = find_result
+	select {
+	case find_result := <- result_channel:
+		res.VDO = find_result
+	case error_finding := <- error_channel:
+		res.Error = error_finding
+	}
+	// find_result := <- result_channel
+	// res.VDO = find_result
 	// xiangyu: unimplemented time out?
 	return nil
 }

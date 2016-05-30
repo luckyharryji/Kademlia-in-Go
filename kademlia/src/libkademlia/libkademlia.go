@@ -28,7 +28,7 @@ type Kademlia struct {
 	hashchannel     chan hashcommand
 
 	// Xiangyu: for vanish
-	VDOStoreChannel chan VDO_Obj_For_Store
+	VDOStoreChannel chan VDO_Obj_For_Command
 	VDOStorage		map[ID]VanashingDataObject
 
 	updatechannel   chan updatecommand
@@ -44,11 +44,12 @@ type hashcommand struct {
 	returnchannel chan hashreturn
 }
 
-type VDO_Obj_For_Store struct {
+type VDO_Obj_For_Command struct {
 	VDO_id	 ID
 	VDO_Obj	 VanashingDataObject
 	Cmd_type int
 	Query_result_channel chan VanashingDataObject
+	errors	 chan error
 	// Time_out  time.Second
 	// xiangyu: Remaining issue
 }
@@ -100,7 +101,7 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k.hashchannel = make(chan hashcommand)
 
 	// xiangyu: store for VDO
-	k.VDOStoreChannel = make(chan VDO_Obj_For_Store)
+	k.VDOStoreChannel = make(chan VDO_Obj_For_Command)
 	go k.HandleVDOStore()
 
 	go k.HandleTable()
@@ -167,7 +168,11 @@ func (k *Kademlia) HandleVDOStore() {
 		case -1:
 			delete(k.VDOStorage, obj.VDO_id) // xiangyu: what if does not existst
 		case 0:
-			obj.Query_result_channel <- k.VDOStorage[obj.VDO_id]
+			if vdo_obj, ok := k.VDOStorage[obj.VDO_id]; ok {
+				obj.Query_result_channel <- vdo_obj
+			} else {
+				obj.errors <- &CommandFailed{"VDO ID does not exists"}
+			}
 			// fmt.Println("Return here")
 		}
 	}
@@ -738,16 +743,17 @@ func (k *Kademlia) DoIterativeFindValue(key ID) (value []byte, err error) {
 
 // For project 3!
 func (k *Kademlia) StoreVdoObj(VdoID ID, vdo VanashingDataObject){
-	store_req := VDO_Obj_For_Store {
+	store_req := VDO_Obj_For_Command {
 		VDO_id: VdoID,
 		VDO_Obj: vdo,
 		Cmd_type: 1,
 		Query_result_channel: nil,
+		errors: nil,
 	}
 	k.VDOStoreChannel <- store_req
 }
 
-func (k *Kademlia) DoFindVdoFromSingleContact(contact Contact, vdoID ID) (vdo VanashingDataObject) {
+func (k *Kademlia) DoFindVdoFromSingleContact(contact Contact, vdoID ID) (vdo *VanashingDataObject) {
 	find_request_id := NewRandomID()
 	get_vdo_request := GetVDORequest {
 		Sender: k.SelfContact,
@@ -779,14 +785,17 @@ func (k *Kademlia) DoFindVdoFromSingleContact(contact Contact, vdoID ID) (vdo Va
 	}
 	update := updatecommand{contact}
 	k.updatechannel <- update
-	return get_vdo_result.VDO
+	if get_vdo_result.Error != nil{
+		return nil
+	}
+	return &get_vdo_result.VDO
 }
 
 func (k *Kademlia) FindVdoFromContactList(contact_list []Contact, vdoID ID) (vdo VanashingDataObject){
 	for _, node_obj :=  range contact_list {
 		vdo_from_node := k.DoFindVdoFromSingleContact(node_obj, vdoID)
-		if &vdo_from_node != nil{
-			return vdo_from_node
+		if vdo_from_node != nil{
+			return *vdo_from_node
 		}
 	}
 	return
@@ -798,7 +807,7 @@ func (k *Kademlia) LocalFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObject) 
 		return nil
 	}
 	local_find_vdo := k.DoFindVdoFromSingleContact(*local_node, vdoID)
-	return &local_find_vdo
+	return local_find_vdo
 }
 
 func (k *Kademlia) IterativeFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObject) {
