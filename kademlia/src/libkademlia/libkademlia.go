@@ -811,8 +811,20 @@ func (k *Kademlia) IterativeFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObje
 		// No node is found
 		return nil
 	}
-	vdo_from_list := k.FindVdoFromContactList(nodes_candidates_with_vdo, vdoID)
-	return &vdo_from_list
+	// Xiangyu denote:
+	// Based on Piazza discussion, only call RPC once if the result of
+	// iterative find node have the same contact node id with the input
+	for _, node_obj := range nodes_candidates_with_vdo {
+		if node_obj.NodeID.Equals(nodeID){
+			vdo_from_iterative_node := k.LocalFindVdo(node_obj.NodeID, vdoID)
+			if vdo_from_iterative_node != nil {
+				return vdo_from_iterative_node
+			}
+		}
+	}
+	return nil
+	// vdo_from_list := k.FindVdoFromContactList(nodes_candidates_with_vdo, vdoID)
+	// return &vdo_from_list
 }
 
 func (k *Kademlia) Republish(timeoutSeconds int, vdo_obj VanashingDataObject, vdoID ID) {
