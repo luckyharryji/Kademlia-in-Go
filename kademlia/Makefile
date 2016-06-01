@@ -1,5 +1,5 @@
 import:
-	export GOPATH=`pwd`
+	export GOPATH='/Users/xiangyu/Documents/git/Kademlia-in-Go/kademlia'
 
 run:
 	go install kademlia

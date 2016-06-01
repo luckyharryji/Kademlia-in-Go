@@ -100,6 +100,8 @@ func NewKademliaWithId(laddr string, nodeID ID) *Kademlia {
 	k.hash = make(map[ID][]byte)
 	k.hashchannel = make(chan hashcommand)
 
+	k.VDOStorage = make(map[ID]VanashingDataObject)
+
 	// xiangyu: store for VDO
 	k.VDOStoreChannel = make(chan VDO_Obj_For_Command)
 	go k.HandleVDOStore()
@@ -275,10 +277,11 @@ func (k *Kademlia) DoPing(host net.IP, port uint16) (*Contact, error) {
 	address := host.String() + ":" + strconv.Itoa(int(port))
 	path := rpc.DefaultRPCPath + strconv.Itoa(int(port))
 	client, err := rpc.DialHTTPPath("tcp", address, path)
-	defer client.Close()
+
 	if err != nil {
 		return nil, &CommandFailed{"HTTP Connect Error"}
 	}
+	defer client.Close()
 	/*
 		Use channel to decide time out
 	*/
@@ -636,7 +639,7 @@ outerloop:
 					break innerloop
 				}
 			case <-time.After(300 * time.Millisecond):
-				fmt.Println("Time out")
+				fmt.Println("Iterative Time out")
 				break innerloop
 			}
 		}
@@ -753,6 +756,17 @@ func (k *Kademlia) StoreVdoObj(VdoID ID, vdo VanashingDataObject){
 	k.VDOStoreChannel <- store_req
 }
 
+func (k *Kademlia) DeleteVdoObj(VdoID ID, vdo VanashingDataObject){
+	delete_req := VDO_Obj_For_Command {
+		VDO_id: VdoID,
+		VDO_Obj: vdo,
+		Cmd_type: -1,
+		Query_result_channel: nil,
+		errors: nil,
+	}
+	k.VDOStoreChannel <- delete_req
+}
+
 func (k *Kademlia) DoFindVdoFromSingleContact(contact Contact, vdoID ID) (vdo *VanashingDataObject) {
 	find_request_id := NewRandomID()
 	get_vdo_request := GetVDORequest {
@@ -842,6 +856,7 @@ func (k *Kademlia) Republish(timeoutSeconds int, vdo_obj VanashingDataObject, vd
 		for {
 			select{
 			case <-time.After(time.Duration(timeoutSeconds) * time.Second):
+				k.DeleteVdoObj(vdoID, vdo_obj)
 				break ForLoop
 			case <-time.After(time.Duration(400 * epoch) * time.Minute):
 				data := k.UnvanishData(vdo_obj)
