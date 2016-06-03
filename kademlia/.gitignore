@@ -4,3 +4,5 @@ bin/*
 pkg/
 /pkg/
 pkg/*
+.DS_Store
+*.gz

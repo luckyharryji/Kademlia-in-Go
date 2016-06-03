@@ -162,6 +162,7 @@ func (k *Kademlia) HandleHash() {
 }
 
 // Use Channel to store VDO locally
+// Use number to mark the type of command: 1: store into map; -1: delete; 0: Find VDO
 func (k *Kademlia) HandleVDOStore() {
 	for obj := range k.VDOStoreChannel {
 		switch obj.Cmd_type{
@@ -644,6 +645,7 @@ outerloop:
 			}
 		}
 	}
+	// fmt.Println("Run To LIne 647", " Lenght: ", activeNodes.Len())
 	//If the closet node is not updated:
 OuterLoop:
 	for activeNodes.Len() < 20 {
@@ -682,6 +684,7 @@ OuterLoop:
 			}
 		}
 	}
+	// fmt.Println("Run to line 686")
 	if findValue && ret.value == nil {
 		ret.activeList = nil
 		ret.success = true
@@ -720,6 +723,7 @@ func (k *Kademlia) DoIterativeFindNode(id ID) ([]Contact, error) {
 }
 func (k *Kademlia) DoIterativeStore(key ID, value []byte) ([]Contact, error) {
 	result := k.Iterative(key, false)
+	// fmt.Println("Can get result")
 	if result.success {
 		for _, node := range result.activeList {
 			k.DoStore(&node, key, value)
@@ -735,7 +739,7 @@ func (k *Kademlia) DoIterativeFindValue(key ID) (value []byte, err error) {
 			k.DoStore(&result.target, key, result.value) //Store the value to the closet node which doesn't return the value
 			//fmt.Println(key.Xor(result.target.NodeID).PrefixLen())
 			//fmt.Println(key.Xor(key).PrefixLen())
-			fmt.Println("Store value to the closet node :" + result.target.NodeID.AsString())
+			// fmt.Println("Store value to the closet node :" + result.target.NodeID.AsString())
 			return result.value, nil
 		} else {
 			return nil, &CommandFailed{"Cannot find value! Closet Node :" + result.target.NodeID.AsString()}
@@ -745,6 +749,10 @@ func (k *Kademlia) DoIterativeFindValue(key ID) (value []byte, err error) {
 }
 
 // For project 3!
+
+/*
+Function used to Store the VDO obj locally into a map
+*/
 func (k *Kademlia) StoreVdoObj(VdoID ID, vdo VanashingDataObject){
 	store_req := VDO_Obj_For_Command {
 		VDO_id: VdoID,
@@ -756,6 +764,9 @@ func (k *Kademlia) StoreVdoObj(VdoID ID, vdo VanashingDataObject){
 	k.VDOStoreChannel <- store_req
 }
 
+/*
+Function used to delete VDO after time out
+*/
 func (k *Kademlia) DeleteVdoObj(VdoID ID, vdo VanashingDataObject){
 	delete_req := VDO_Obj_For_Command {
 		VDO_id: VdoID,
@@ -767,6 +778,11 @@ func (k *Kademlia) DeleteVdoObj(VdoID ID, vdo VanashingDataObject){
 	k.VDOStoreChannel <- delete_req
 }
 
+/*
+Find VDO with RPC from a remote node
+
+Used for unvanish data
+*/
 func (k *Kademlia) DoFindVdoFromSingleContact(contact Contact, vdoID ID) (vdo *VanashingDataObject) {
 	find_request_id := NewRandomID()
 	get_vdo_request := GetVDORequest {
@@ -799,12 +815,20 @@ func (k *Kademlia) DoFindVdoFromSingleContact(contact Contact, vdoID ID) (vdo *V
 	}
 	update := updatecommand{contact}
 	k.updatechannel <- update
+	// Error in RPC: return none pointer, vdo can not be found from ROC this node
 	if get_vdo_result.Error != nil{
 		return nil
 	}
 	return &get_vdo_result.VDO
 }
 
+
+/*
+Abandon this function: since require to only find in node id which is the same
+as given
+
+Find VDO from contact list: look for every node in the result of node find value
+*/
 func (k *Kademlia) FindVdoFromContactList(contact_list []Contact, vdoID ID) (vdo VanashingDataObject){
 	for _, node_obj :=  range contact_list {
 		vdo_from_node := k.DoFindVdoFromSingleContact(node_obj, vdoID)
@@ -815,6 +839,9 @@ func (k *Kademlia) FindVdoFromContactList(contact_list []Contact, vdoID ID) (vdo
 	return
 }
 
+/*
+Find VDO from node stored locally in BuckerList
+*/
 func (k *Kademlia) LocalFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObject) {
 	local_node, err := k.FindContact(nodeID)
 	if err != nil {
@@ -824,6 +851,9 @@ func (k *Kademlia) LocalFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObject) 
 	return local_find_vdo
 }
 
+/*
+Iteratively find node, only do RPC for node wiht same given id
+*/
 func (k *Kademlia) IterativeFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObject) {
 	nodes_candidates_with_vdo, err := k.DoIterativeFindNode(nodeID)
 	if err != nil{
@@ -846,8 +876,6 @@ func (k *Kademlia) IterativeFindVdo(nodeID ID, vdoID ID) (vdo *VanashingDataObje
 		}
 	}
 	return nil
-	// vdo_from_list := k.FindVdoFromContactList(nodes_candidates_with_vdo, vdoID)
-	// return &vdo_from_list
 }
 
 func (k *Kademlia) Republish(timeoutSeconds int, vdo_obj VanashingDataObject, vdoID ID) {
@@ -868,9 +896,9 @@ func (k *Kademlia) Republish(timeoutSeconds int, vdo_obj VanashingDataObject, vd
 }
 
 func (k *Kademlia) Vanish(vdoID ID, data []byte, numberKeys byte, threshold byte, timeoutSeconds int) (vdo VanashingDataObject) {
-	// Xiangyu: remaining handling timeout
 	vdo_after_vanish := k.VanishData(data, numberKeys, threshold, timeoutSeconds)
 	k.StoreVdoObj(vdoID, vdo_after_vanish)
+	// start a goroutine to refresh and delete vdo when time out
 	go k.Republish(timeoutSeconds, vdo_after_vanish, vdoID)
 	return vdo_after_vanish
 }

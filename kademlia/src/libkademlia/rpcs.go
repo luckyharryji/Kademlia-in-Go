@@ -142,14 +142,13 @@ type GetVDOResult struct {
 	Error error
 }
 
+// RPC to handle request to get VDO obj
 func (k *KademliaRPC) GetVDO(req GetVDORequest, res *GetVDOResult) error {
-	// TODO: Implement.
 	res.MsgID = CopyID(req.MsgID)
 	update := updatecommand{req.Sender}
 	k.kademlia.updatechannel <- update
 	id_of_vdo := req.VdoID
 	result_channel := make(chan VanashingDataObject)
-	// xiangyu : wired type??
 	empty_vdo_obj := new(VanashingDataObject)
 	error_channel := make(chan error)
 	find_req := VDO_Obj_For_Command {
@@ -166,8 +165,5 @@ func (k *KademliaRPC) GetVDO(req GetVDORequest, res *GetVDOResult) error {
 	case error_finding := <- error_channel:
 		res.Error = error_finding
 	}
-	// find_result := <- result_channel
-	// res.VDO = find_result
-	// xiangyu: unimplemented time out?
 	return nil
 }

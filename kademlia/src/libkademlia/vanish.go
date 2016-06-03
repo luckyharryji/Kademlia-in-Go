@@ -8,6 +8,7 @@ import (
 	mathrand "math/rand"
 	"time"
 	"sss"
+	// "fmt"
 )
 
 type VanashingDataObject struct {
@@ -96,7 +97,6 @@ func (k *Kademlia) VanishDataWithRepublish(data []byte, numberKeys byte,
 	node_index := 0
 	for key, value := range sss_key_map {
 		all := append([]byte{key}, value...)
-		// xiangyu : start new go_routine to store?
 		k.DoIterativeStore(node_list_to_store[node_index], all)
 		node_index += 1
 	}
@@ -113,18 +113,23 @@ func (k *Kademlia) VanishData(data []byte, numberKeys byte,
 	threshold byte, timeoutSeconds int) (vdo VanashingDataObject) {
 	cryptographic_key := GenerateRandomCryptoKey()
 	data_after_encrypt := encrypt(cryptographic_key, data)
-	sss_key_map, _ := sss.Split(numberKeys, threshold, cryptographic_key)
-	// xiangyu: handle error here??
+	sss_key_map, err := sss.Split(numberKeys, threshold, cryptographic_key)
+	if err != nil{
+		// panic would be better??
+		return VanashingDataObject{}
+	}
 	access_key := GenerateRandomAccessKey()
 	count := int64(numberKeys)
 	node_list_to_store := CalculateSharedKeyLocations(access_key, count)
 	node_index := 0
 	for key, value := range sss_key_map {
 		all := append([]byte{key}, value...)
-		// xiangyu : start new go_routine to store?
+		// fmt.Println(node_index, "data is :",key, value)
+		// fmt.Println("Node location: ", node_list_to_store[node_index])
 		k.DoIterativeStore(node_list_to_store[node_index], all)
 		node_index += 1
 	}
+	// fmt.Println("After iterative Store for node")
 	VDO_obj := VanashingDataObject{
 		AccessKey: access_key,
 		Ciphertext: data_after_encrypt,
@@ -135,7 +140,6 @@ func (k *Kademlia) VanishData(data []byte, numberKeys byte,
 }
 
 func (k *Kademlia) UnvanishData(vdo VanashingDataObject) (data []byte) {
-	// xiangyu: Also return error for this function?
 	access_key := vdo.AccessKey
 	data_after_encrypt := vdo.Ciphertext
 	numberKeys := vdo.NumberKeys
@@ -144,7 +148,10 @@ func (k *Kademlia) UnvanishData(vdo VanashingDataObject) (data []byte) {
 	node_storing_id_list := CalculateSharedKeyLocations(access_key, count)
 	sss_map := make(map[byte] []byte)
 	for _, node_id := range node_storing_id_list {
-		content, _ := k.DoIterativeFindValue(node_id)
+		content, err := k.DoIterativeFindValue(node_id)
+		if err != nil{
+			continue
+		}
 		// xiangyu: error handling
 		key := content[0]
 		value := content[1:]
@@ -153,7 +160,6 @@ func (k *Kademlia) UnvanishData(vdo VanashingDataObject) (data []byte) {
 			break
 		}
 	}
-	// xiangyu: handle error: not able to restore??
 	cryptographic_key := sss.Combine(sss_map)
 	data_before_encrypt := decrypt(cryptographic_key, data_after_encrypt)
 	return data_before_encrypt
